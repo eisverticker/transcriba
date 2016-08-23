@@ -1,0 +1,35 @@
+{
+  "db": {
+    "name": "db",
+    "connector": "memory"
+  },
+  "mongo": {
+    "host": "localhost",
+    "port": 27017,
+    "url": "",
+    "database": "testtest",
+    "password": "",
+    "name": "mongo",
+    "user": "mongodb",
+    "connector": "mongodb"
+  },
+  "mailer": {
+    "name": "mailer",
+    "connector": "mail",
+    "transports": [
+      {
+        "type": "smtp",
+        "host": "mail host here",
+        "secure": false,
+        "port": 587,
+        "tls": {
+          "rejectUnauthorized": false
+        },
+        "auth": {
+          "user": "your username here",
+          "pass": "your password here"
+        }
+      }
+    ]
+  }
+}

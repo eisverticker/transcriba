@@ -1,0 +1,46 @@
+{
+  "restApiRoot": "/api",
+  "host": "0.0.0.0",
+  "port": 3001,
+  "remoting": {
+    "context": {
+      "enableHttpContext": false
+    },
+    "rest": {
+      "normalizeHttpPath": false,
+      "xml": false
+    },
+    "json": {
+      "strict": false,
+      "limit": "100kb"
+    },
+    "urlencoded": {
+      "extended": true,
+      "limit": "100kb"
+    },
+    "cors": false,
+    "handleErrors": false
+  },
+  "legacyExplorer": false,
+  "custom": {
+    "appName": "MyApp",
+    "seedDatabase": false,
+    "seeding": {
+      "users": 5
+    },
+    "admin": {
+      "username": "Administrator",
+      "password": "+rA4uswatHaP",
+      "email": "foobar3@no-spam.ws"
+    },
+    "senderMail": "foo@bar.com",
+    "rbac":{
+      "hierachical": false,
+      "defaultRole": "registered",
+      "roles": [
+        "registered",
+        "administrator"
+      ]
+    }
+  }
+}
