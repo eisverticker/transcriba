@@ -20,16 +20,6 @@ var configFiles = {
 
 var questions = [
 	{
-		title: "How is your app called?",
-		type: "default",
-		required: true,
-		target: {
-			file: "config",
-			position: 'custom.appName'
-		},
-		default: 'myApp',
-	},
-	{
 		title: "Please provide the sender email address for verification mails among others",
 		type: "email",
 		required: true,
@@ -109,33 +99,6 @@ var questions = [
 		target: {
 			file: "config",
 			position: "custom.admin.password"
-		}
-	},
-	{
-		title: "Do you want to create a hierachical user role system?",
-		type: "boolean",
-		required: true,
-		target: {
-			file: "config",
-			position: "custom.rbac.hierachical"
-		}
-	},
-	{
-		title: "Choose your roles (the first is the one with the fewest rights)",
-		type: "array",
-		required: true,
-		target: {
-			file: "config",
-			position: "custom.rbac.roles"
-		}
-	},
-	{
-		title: "Which role should be assigned to a recently registered user?",
-		type: "default",
-		required: true,
-		target: {
-			file: "config",
-			position: "custom.rbac.defaultRole"
 		}
 	}
 ];

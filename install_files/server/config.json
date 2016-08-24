@@ -23,7 +23,7 @@
   },
   "legacyExplorer": false,
   "custom": {
-    "appName": "MyApp",
+    "appName": "Transcriba",
     "seedDatabase": false,
     "seeding": {
       "users": 5
@@ -34,11 +34,13 @@
       "email": "foobar3@no-spam.ws"
     },
     "senderMail": "foo@bar.com",
-    "rbac":{
-      "hierachical": false,
+    "rbac": {
+      "hierachical": true,
       "defaultRole": "registered",
       "roles": [
         "registered",
+        "trusted",
+        "employee",
         "administrator"
       ]
     }
