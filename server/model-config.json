@@ -42,5 +42,9 @@
   "Source": {
     "dataSource": "mongo",
     "public": true
+  },
+  "InfoPage": {
+    "dataSource": "mongo",
+    "public": true
   }
 }

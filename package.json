@@ -20,6 +20,7 @@
     "loopback-boot": "^2.6.5",
     "loopback-component-explorer": "^2.4.0",
     "loopback-connector-mongodb": "^1.15.2",
+    "marked": "^0.3.6",
     "serve-favicon": "^2.0.1",
     "strong-error-handler": "^1.0.1"
   },
