@@ -46,5 +46,13 @@
   "InfoPage": {
     "dataSource": "mongo",
     "public": true
+  },
+  "Comment": {
+    "dataSource": "mongo",
+    "public": false
+  },
+  "Discussion": {
+    "dataSource": "mongo",
+    "public": true
   }
 }

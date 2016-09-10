@@ -15,10 +15,21 @@
       "type": "string",
       "required": true,
       "default": "this page is empty"
+    },
+    "show_discussion": {
+      "type": "boolean",
+      "required": true,
+      "default": true
     }
   },
   "validations": [],
-  "relations": {},
+  "relations": {
+    "discussion": {
+      "type": "belongsTo",
+      "model": "Discussion",
+      "foreignKey": ""
+    }
+  },
   "acls": [
     {
       "accessType": "*",
