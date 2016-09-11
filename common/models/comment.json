@@ -10,10 +10,22 @@
       "type": "string",
       "required": true,
       "default": "empty"
+    },
+    "createdAt": {
+      "type": "date",
+      "required": true,
+      "default": "March 14, 1879 00:00:01"
     }
   },
   "validations": [],
-  "relations": {},
+  "relations": {
+    "appUser": {
+      "type": "belongsTo",
+      "model": "AppUser",
+      "foreignKey": "",
+      "required": true
+    }
+  },
   "acls": [],
   "methods": {}
 }
