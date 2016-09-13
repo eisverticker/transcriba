@@ -54,5 +54,9 @@
   "Discussion": {
     "dataSource": "mongo",
     "public": true
+  },
+  "Voting": {
+    "dataSource": "mongo",
+    "public": true
   }
 }

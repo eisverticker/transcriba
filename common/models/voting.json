@@ -1,0 +1,81 @@
+{
+  "name": "Voting",
+  "base": "PersistedModel",
+  "idInjection": true,
+  "indexes": {
+    "voting_context_unique": {
+      "keys": {
+        "objectType": 1,
+        "objectId": 1,
+        "appUser": 1
+      },
+      "options": {
+        "unique": true
+      }
+    }
+  },
+  "options": {
+    "validateUpsert": true
+  },
+  "properties": {
+    "objectType": {
+      "type": "string",
+      "required": true,
+      "default": "Comment"
+    },
+    "objectId": {
+      "type": "string",
+      "required": true,
+      "default": "null"
+    },
+    "vote": {
+      "type": "string",
+      "required": true,
+      "default": "like"
+    }
+  },
+  "validations": [],
+  "relations": {
+    "appUser": {
+      "type": "belongsTo",
+      "model": "AppUser",
+      "foreignKey": "userId"
+    },
+    "comment": {
+      "type": "belongsTo",
+      "model": "Comment",
+      "polymorphic": {
+        "foreignKey": "objectId",
+        "discriminator": "objectType"
+       }
+    }
+  },
+  "acls": [
+    {
+      "accessType": "*",
+      "principalType": "ROLE",
+      "principalId": "$everyone",
+      "permission": "DENY"
+    },
+    {
+      "accessType": "EXECUTE",
+      "principalType": "ROLE",
+      "principalId": "$authenticated",
+      "permission": "ALLOW",
+      "property": "vote"
+    },
+    {
+      "accessType": "READ",
+      "principalType": "ROLE",
+      "principalId": "$everyone",
+      "permission": "ALLOW"
+    },
+    {
+      "principalType": "ROLE",
+      "principalId": "$owner",
+      "permission": "ALLOW",
+      "property": "deleteById"
+    }
+  ],
+  "methods": {}
+}

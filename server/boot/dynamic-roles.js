@@ -1,13 +1,14 @@
 module.exports = function(server) {
   var Role = server.models.Role;
   //var creatorModels = ['Comment'];
+  //var votingModels = ['Voting'];
 
-  /*Role.registerResolver('$creator', function(role, context, cb) {
+  /*Role.registerResolver('$voter', function(role, context, cb) {
     console.log(context.modelName);
 
 
     // Q: Is the current request accessing a supported model?
-    if (creatorModels.indexOf(context.modelName) === -1) {
+    if (votingModels.indexOf(context.modelName) === -1) {
       // A: No. This model is not supported
       return process.nextTick(() => cb(null, false));
     }
@@ -20,7 +21,9 @@ module.exports = function(server) {
     }
 
     //always accept
-    return cb(null, false);
+    return cb(null, true);
 
   });*/
+
+
 };
