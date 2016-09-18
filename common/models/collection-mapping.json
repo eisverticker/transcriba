@@ -1,0 +1,31 @@
+{
+  "name": "CollectionMapping",
+  "base": "PersistedModel",
+  "idInjection": true,
+  "options": {
+    "validateUpsert": true
+  },
+  "properties": {
+    "itemType": {
+      "type": "string",
+      "required": true
+    },
+    "itemId": {
+      "type": "string",
+      "required": true
+    },
+    "textRole": {
+      "type": "string",
+      "required": true,
+      "default": "page"
+    },
+    "order": {
+      "type": "number",
+      "default": 0
+    }
+  },
+  "validations": [],
+  "relations": {},
+  "acls": [],
+  "methods": {}
+}

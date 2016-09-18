@@ -58,5 +58,25 @@
   "Voting": {
     "dataSource": "mongo",
     "public": true
+  },
+  "TranscribaObject": {
+    "dataSource": "mongo",
+    "public": true
+  },
+  "Collection": {
+    "dataSource": "mongo",
+    "public": true
+  },
+  "CollectionMapping": {
+    "dataSource": "mongo",
+    "public": false
+  },
+  "Revision": {
+    "dataSource": "mongo",
+    "public": true
+  },
+  "UserParticipation": {
+    "dataSource": "mongo",
+    "public": false
   }
 }

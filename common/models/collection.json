@@ -1,0 +1,33 @@
+{
+  "name": "Collection",
+  "base": "PersistedModel",
+  "idInjection": true,
+  "options": {
+    "validateUpsert": true
+  },
+  "properties": {
+    "name": {
+      "type": "string",
+      "required": true
+    },
+    "description": {
+      "type": "string",
+      "required": true,
+      "default": "empty"
+    },
+    "public": {
+      "type": "boolean",
+      "required": true,
+      "default": true
+    },
+    "locked": {
+      "type": "boolean",
+      "required": true,
+      "default": false
+    }
+  },
+  "validations": [],
+  "relations": {},
+  "acls": [],
+  "methods": {}
+}

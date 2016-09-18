@@ -1,0 +1,36 @@
+{
+  "name": "Revision",
+  "base": "PersistedModel",
+  "idInjection": true,
+  "options": {
+    "validateUpsert": true
+  },
+  "properties": {
+    "status": {
+      "type": "number",
+      "required": true,
+      "default": 0
+    },
+    "createdAt": {
+      "type": "date",
+      "required": true
+    },
+    "active": {
+      "type": "boolean",
+      "required": true,
+      "default": false
+    },
+    "metadata": {
+      "type": "object",
+      "required": true
+    },
+    "content": {
+      "type": "object",
+      "required": true
+    }
+  },
+  "validations": [],
+  "relations": {},
+  "acls": [],
+  "methods": {}
+}
