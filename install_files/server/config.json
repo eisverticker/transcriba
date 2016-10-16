@@ -22,8 +22,12 @@
   "custom": {
     "appName": "Transcriba",
     "seedDatabase": false,
+    "createDummyData": true,
     "seeding": {
       "users": 5
+    },
+    "dummies": {
+      "pages": ["impressum", "intro"]
     },
     "admin": {
       "username": "Administrator",

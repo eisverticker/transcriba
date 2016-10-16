@@ -30,7 +30,18 @@
     }
   },
   "validations": [],
-  "relations": {},
+  "relations": {
+    "source": {
+      "type": "belongsTo",
+      "model": "Source",
+      "foreignKey": ""
+    },
+    "discussion": {
+      "type": "belongsTo",
+      "model": "Discussion",
+      "foreignKey": ""
+    }
+  },
   "acls": [],
   "methods": {}
 }
