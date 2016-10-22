@@ -27,6 +27,10 @@
       "type": "boolean",
       "required": true,
       "default": false
+    },
+    "occupied": {
+      "type": "date",
+      "required": false
     }
   },
   "validations": [],
@@ -40,6 +44,17 @@
       "type": "belongsTo",
       "model": "Discussion",
       "foreignKey": ""
+    },
+    "revisions": {
+      "type": "hasMany",
+      "model": "Revision",
+      "foreignKey": ""
+    },
+    "active_revision": {
+      "type": "hasOne",
+      "model": "Revision",
+      "foreignKey": "active_revisionId",
+      "required": false
     }
   },
   "acls": [],

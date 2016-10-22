@@ -27,10 +27,25 @@
     "content": {
       "type": "object",
       "required": true
+    },
+    "version": {
+      "type": "number",
+      "default": "0"
     }
   },
   "validations": [],
-  "relations": {},
+  "relations": {
+    "transcribaObject": {
+      "type": "belongsTo",
+      "model": "TranscribaObject",
+      "foreignKey": ""
+    },
+    "owner": {
+      "type": "belongsTo",
+      "model": "AppUser",
+      "foreignKey": ""
+    }
+  },
   "acls": [],
   "methods": {}
 }

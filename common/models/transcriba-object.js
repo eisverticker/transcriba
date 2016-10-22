@@ -11,9 +11,67 @@ module.exports = function(Obj) {
 
   Obj.tileSize = 256;
 
-  Obj.import = function(data, callback){
-    var Source = Obj.app.models.Source;
+  /**
+   * Generates all image files like thumbnails, tiles, ... which are
+   * being used by the transcriba application
+   */
+  Obj.generateImages = function(data, id, callback){
+    var completedTaskCounter = 0;
+    var numOfTasks = 4;
+
+    var completeTask = function(){
+      completedTaskCounter++;
+
+      if(completedTaskCounter == numOfTasks){
+        callback(null);
+      }
+    };
+
+    sharp(data).toFile('imports/'+id+'/raw.jpg', function(err){
+      if(err) return callback(err);
+      completeTask();
+    });
+
+    sharp(data).resize(undefined,512).toFile('imports/'+id+'/overview.jpg', function(err){
+      if(err) return callback(err);
+      completeTask();
+    });
+
+    sharp(data).resize(undefined, 128).toFile('imports/'+id+'/thumbnail.jpg', function(err){
+      if(err) return callback(err);
+      completeTask();
+    });
+
+    sharp(data)
+    .tile({
+      size: Obj.tileSize,
+      layout: 'google'
+    })
+    .toFile('imports/'+id+'/tiled.dzi', function(err){
+      if(err) return callback(err);
+      completeTask();
+    });
+  }
+
+  /*Obj.createObjectDependencies = function(callback){
     var Discussion = Obj.app.models.Discussion;
+
+    Discussion.create({
+      title: "transcriba"
+    }, function(err, discussion){
+      if(err) return callback(err);
+
+    });
+  };*/
+
+  /**
+   * Method for the REST import endpoint.
+   * It is being used to create TranscribaObjects from
+   * external Sources
+   */
+  Obj.import = function(data, callback){
+    var Discussion = Obj.app.models.Discussion;
+    var Source = Obj.app.models.Source;
 
     //alter voting if the user already voted in the past
     Source.findOne({
@@ -53,41 +111,13 @@ module.exports = function(Obj) {
                 data => {
                   fsExtra.ensureDir('imports/'+obj.id, function(err){
                     if(err) return callback(err);
-                    var completedTaskCounter = 0;
-                    var numOfTasks = 4;
 
-                    var completeTask = function(){
-                      completedTaskCounter++;
-
-                      if(completedTaskCounter == numOfTasks){
-                        callback(null, obj.id );
-                      }
-                    };
-
-                    sharp(data).toFile('imports/'+obj.id+'/raw.jpg', function(err){
+                    Obj.generateImages(data, obj.id, function(err){
                       if(err) return callback(err);
-                      completeTask();
+
+                      callback(null, obj.id );
                     });
 
-                    sharp(data).resize(undefined,512).toFile('imports/'+obj.id+'/overview.jpg', function(err){
-                      if(err) return callback(err);
-                      completeTask();
-                    });
-
-                    sharp(data).resize(undefined, 128).toFile('imports/'+obj.id+'/thumbnail.jpg', function(err){
-                      if(err) return callback(err);
-                      completeTask();
-                    });
-
-                    sharp(data)
-                    .tile({
-                      size: Obj.tileSize,
-                      layout: 'google'
-                    })
-                    .toFile('imports/'+obj.id+'/tiled.dzi', function(err){
-                      if(err) return callback(err);
-                      completeTask();
-                    });
 
                   });
                 }
