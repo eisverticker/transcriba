@@ -31,7 +31,7 @@ module.exports = function(server){
   createDummyPages(pageNames, function(err){
     if(err) throw err;
 
-    console.log("dummy pages created");
+    //console.log("dummy pages created");
   });
 
 
