@@ -1,0 +1,54 @@
+<TEI xmlns="http://www.tei-c.org/ns/1.0">
+	<teiHeader>
+		<fileDesc>
+			<titleStmt>
+				<title><%- title -%></title>
+			</titleStmt>
+			<publicationStmt>
+				<p>Not for distribution.</p>
+			</publicationStmt>
+			<sourceDesc>
+			<p>Transcribed by users from the crowdsourcing platform transcriba.de. The original image was imported from <%- sourceName -%>.</p>
+			</sourceDesc>
+		</fileDesc>
+	</teiHeader>
+	<text>
+		<body>
+      <% content.children.forEach(function(child){ %>
+
+        <% if(child.type == "page"){ %>
+          <pb />
+          <% child.children.forEach(function(child){ %>
+            <% if(child.type == "heading"){ %>
+                <head>
+                  <% child.children.forEach(function(child){ %>
+                    <% if(child.type == "textPartOrdinary"){ %>
+                        <%- child.properties.value -%>
+                    <% } %>
+                  <% }) %>
+                </head>
+            <% } %>
+            <% if(child.type == "paragraph"){ %>
+                <p>
+                  <% child.children.forEach(function(child){ %>
+                    <% if(child.type == "line"){ %>
+                        <l>
+                          <% child.children.forEach(function(child){ %>
+                            <% if(child.type == "textPartOrdinary"){ %>
+                                <%- child.properties.value -%>
+                            <% } %>
+                          <% }) %>
+                        </l>
+                    <% } %>
+                  <% }) %>
+                </p>
+            <% } %>
+
+          <% }) %>
+        <% } %>
+
+      <% }) %>
+
+		</body>
+	</text>
+</TEI>

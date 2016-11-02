@@ -5,7 +5,32 @@
   "options": {
     "validateUpsert": true
   },
-  "properties": {},
+  "hidden": [
+    "password",
+    "verificationToken",
+    "busy",
+    "warnings",
+    "score",
+    "disabled"
+  ],
+  "properties": {
+    "score": {
+      "type": "number",
+      "default": 0
+    },
+    "warnings": {
+      "type": "number",
+      "default": 0
+    },
+    "busy": {
+      "type": "boolean",
+      "default": false
+    },
+    "disabled": {
+      "type": "boolean",
+      "default": false
+    }
+  },
   "validations": [],
   "relations": {
     "roles": {
@@ -33,6 +58,20 @@
       "principalId": "$owner",
       "permission": "ALLOW",
       "property": "__get__roles"
+    },
+    {
+      "accessType": "EXECUTE",
+      "principalType": "ROLE",
+      "principalId": "$everyone",
+      "permission": "ALLOW",
+      "property": "leaderboard"
+    },
+    {
+      "accessType": "EXECUTE",
+      "principalType": "ROLE",
+      "principalId": "$authenticated",
+      "permission": "ALLOW",
+      "property": "score"
     }
   ],
   "methods": {}

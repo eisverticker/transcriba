@@ -95,6 +95,9 @@ module.exports = function(server) {
 
       if (!user) {
 
+        /*
+         * Create Administrator
+         */
         User.create({
           username: config.custom.admin.username,
           email: config.custom.admin.email,
@@ -110,6 +113,24 @@ module.exports = function(server) {
           });
 
         });
+
+        /*
+         * Create Bot user
+         */
+         User.create({
+           username: config.custom.bot.username,
+           email: config.custom.bot.email,
+           password: config.custom.bot.password,
+           emailVerified: true
+         }, function(err, user){
+           if(err) return callback(err);
+
+           User.setRole(user.id, config.custom.rbac.defaultRole, function(err){
+             if(err) throw err;
+
+             console.log("Bot " + user.username + " was successfully created");
+           })
+         });
 
       }
     });

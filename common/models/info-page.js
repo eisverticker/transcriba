@@ -58,4 +58,20 @@ module.exports = function(InfoPage) {
       }
   );
 
+
+  InfoPage.observe('after save', function filterProperties(ctx, next) {
+
+    //create discussion automatically if none was given
+    if(ctx.instance.discussionId == undefined){
+      ctx.instance.discussion.create( {} , function(err){
+        if(err) return next(err);
+
+        next();
+      });
+    }else{
+      next();
+    }
+    
+  });
+
 };

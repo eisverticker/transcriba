@@ -16,8 +16,7 @@
     },
     "textRole": {
       "type": "string",
-      "required": true,
-      "default": "page"
+      "default": "none"
     },
     "order": {
       "type": "number",
@@ -25,7 +24,21 @@
     }
   },
   "validations": [],
-  "relations": {},
+  "relations": {
+    "collection": {
+      "type": "belongsTo",
+      "model": "Collection",
+      "foreignKey": "collectionId"
+    },
+    "transcribaObject": {
+      "type": "belongsTo",
+      "model": "TranscribaObject",
+      "polymorphic": {
+        "foreignKey": "itemId",
+        "discriminator": "itemType"
+      }
+    }
+  },
   "acls": [],
   "methods": {}
 }

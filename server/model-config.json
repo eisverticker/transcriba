@@ -69,11 +69,11 @@
   },
   "CollectionMapping": {
     "dataSource": "mongo",
-    "public": false
+    "public": true
   },
   "Revision": {
     "dataSource": "mongo",
-    "public": true
+    "public": false
   },
   "UserParticipation": {
     "dataSource": "mongo",

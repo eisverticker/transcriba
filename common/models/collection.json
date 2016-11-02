@@ -27,7 +27,18 @@
     }
   },
   "validations": [],
-  "relations": {},
+  "relations": {
+    "transcribaObjects": {
+      "type": "hasMany",
+      "model": "TranscribaObject",
+      "polymorphic": {
+        "foreignKey": "itemId",
+        "discriminator": "itemType"
+      },
+      "through": "CollectionMapping",
+      "keyThrough": "collectionId"
+    }
+  },
   "acls": [],
   "methods": {}
 }

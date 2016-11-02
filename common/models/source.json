@@ -16,6 +16,16 @@
       "required": true,
       "default": "none"
     },
+    "info_url": {
+      "type": "string",
+      "required": false,
+      "default": "none"
+    },
+    "logo_url": {
+      "type": "string",
+      "required": false,
+      "default": "none"
+    },
     "api_type": {
       "type": "string",
       "required": true,
@@ -33,7 +43,13 @@
     }
   },
   "validations": [],
-  "relations": {},
+  "relations": {
+    "collection": {
+      "type": "belongsTo",
+      "model": "Collection",
+      "foreignKey": ""
+    }
+  },
   "acls": [
     {
       "accessType": "*",
