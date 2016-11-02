@@ -117,8 +117,6 @@ module.exports = function(user) {
    }, function(err, count){
      if(err) return callback(err);
 
-     console.log("recent votes", count);
-
      callback(null, count);
    });
 
@@ -169,7 +167,6 @@ module.exports = function(user) {
 
     this.isEligibleVoter(function(err, eligible){
       if(err) return callback(err);
-      console.log("eligible", eligible);
 
       me.numOfRecentVotes("Revision", function(err, recentVotes){
         if(err) return callback(err);
@@ -425,7 +422,6 @@ module.exports = function(user) {
       (reqBody.username !== undefined && reqBody.username == config.custom.bot.username) ||
       (reqBody.email !== undefined && reqBody.email == config.custom.bot.email)
     ){
-      console.log("yeay")
       next(new Error('cannot login as bot'));
     }else{
       next();

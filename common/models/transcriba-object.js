@@ -641,8 +641,6 @@ module.exports = function(Obj) {
       if(!Obj.contentValidator(content)) return callback("content has an inappropriate format");
       if(revision.published) return callback('revision is already published and cannot be changed');
 
-      console.log("content",content);
-
       revision.content = Obj.cleanUpContent(content);
       revision.save();
       callback(null, revision);

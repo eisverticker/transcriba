@@ -168,8 +168,6 @@ module.exports = function(Voting) {
     Voting.app.models.AppUser.numOfEligibleVoters(function(err, eligibleVoters){
       if(err) return callback(err);
 
-      console.log("num of eligibles", eligibleVoters);
-
       var votesNeeded;
 
       if(eligibleVoters < 20){
