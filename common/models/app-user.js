@@ -30,7 +30,8 @@ module.exports = function(user) {
       template: path.resolve(__dirname, '../../server/views/verify.ejs'),
       user: user,
       redirect: '/verified',
-      appName: config.custom.appName
+      appName: config.custom.appName,
+      verifyHref: config.custom.appUrl+urlPath +'?uid=' +options.user.id +'&redirect=' + options.redirect
     };
 
     user.verify(options, function(err, response) {
@@ -44,7 +45,7 @@ module.exports = function(user) {
 
   //send password reset link when requested
   user.on('resetPasswordRequest', function(info) {
-    var url = 'http://' + config.host + ':' + config.port + '/reset-password';
+    var url = 'http://' + config.custom.appUrl + '/reset-password';
     var html = 'Click <a href="' + url + '?access_token=' +
         info.accessToken.id + '">here</a> to reset your password';
 
