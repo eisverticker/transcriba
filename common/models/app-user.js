@@ -30,14 +30,22 @@ module.exports = function(user) {
       template: path.resolve(__dirname, '../../server/views/verify.ejs'),
       user: user,
       redirect: '/verified',
-      appName: config.custom.appName,
-      verifyHref: config.custom.appUrl+urlPath +'?uid=' +options.user.id +'&redirect=' + options.redirect
+      appName: config.custom.appName
     };
+
+    //local host doesn't matter if people don't access the local server directly
+    // so we have to take care that the verification link points to the external ip
+    if(!config.custom.isLocalServerEnvironment){
+      options.host = config.custom.appUrl;
+      options.port = 80;
+    }
+
+    console.log(options);
 
     user.verify(options, function(err, response) {
       if (err) return next(err);
 
-      console.log('> verification email sent:', response);
+      //console.log('> verification email sent:', response);
       return next();
     });
   });

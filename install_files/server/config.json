@@ -21,7 +21,8 @@
   "legacyExplorer": false,
   "custom": {
     "appName": "Transcriba",
-    "appUrl": "0.0.0.0:3001",
+    "isLocalServerEnvironment": true,
+    "appUrl": "",
     "seedDatabase": false,
     "createDummyData": true,
     "seeding": {
