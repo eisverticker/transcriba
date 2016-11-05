@@ -37,10 +37,8 @@ module.exports = function(user) {
     // so we have to take care that the verification link points to the external ip
     if(!config.custom.isLocalServerEnvironment){
       options.host = config.custom.appUrl;
-      options.port = 80;
+      options.port = "80";
     }
-
-    console.log(options);
 
     user.verify(options, function(err, response) {
       if (err) return next(err);
@@ -99,7 +97,11 @@ module.exports = function(user) {
   * @param {boolean} isEligible;
   */
  user.prototype.isEligibleVoter = function(callback){
-   return callback(null, this.score >= user.minimumRevisionVotingScore);
+   this.hasRole('trusted', function(err, isTrusted){
+     if(err) callback(err);
+
+     callback(null, this.score >= user.minimumRevisionVotingScore || isTrusted);
+   });
  }
 
  /**
