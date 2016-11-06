@@ -19,10 +19,49 @@ module.exports = function(Source) {
 
       source.collectionId = collection.id;
       source.save();
-      
+
       next();
     })
 
   });
+
+  /**
+   * Returns a few details of a given source
+   * (because some users don't have rights to access the full dataset)
+   * @param {string} id
+   * @callback requestCallback
+   * @param {string} err
+   * @param {object} sourceSummary
+   */
+  Source.summary = function(id, callback){
+    Source.findById(id, function(err, source){
+      if(err) return callback(err);
+      if(!source) return callback('source not found');
+
+      callback(null,
+        {
+        'id': source.id,
+        'title': source.title,
+        'info_url': source.info_url,
+        'logo_url': source.logo_url
+        }
+      );
+    });
+  }
+
+  Source.remoteMethod(
+    'summary',
+    {
+      description: 'Returns some details for a given source, which are not hidden',
+      accepts: [
+        { arg: 'id', type: 'string', required: true }
+      ],
+      returns: [
+        { arg: 'details', type: 'object', root: true}
+      ],
+      http: { path: '/:id/summary', verb: 'get' },
+      isStatic: true
+    }
+  );
 
 };
