@@ -462,6 +462,19 @@ module.exports = function(Obj) {
 
   Obj.latestPermissions = function(id, req , callback){
     var User = Obj.app.models.AppUser;
+
+    //these lines were added to support such requests from guests
+    if(req.accessToken == undefined){
+      //guests are not allowed to vote
+      return callback(null,
+        false, //no voting permissions
+        {
+          'eligibleVoter': false,
+          'maximumVotesReached': false,
+          'isOwner': false
+        });
+    }
+
     var userId = req.accessToken.userId;
 
     Obj.latest(id, function(err, revision){
