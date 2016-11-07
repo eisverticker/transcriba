@@ -97,10 +97,11 @@ module.exports = function(user) {
   * @param {boolean} isEligible;
   */
  user.prototype.isEligibleVoter = function(callback){
+   var me = this;
    this.hasRole('trusted', function(err, isTrusted){
      if(err) callback(err);
 
-     callback(null, this.score >= user.minimumRevisionVotingScore || isTrusted);
+     callback(null, me.score >= user.minimumRevisionVotingScore || isTrusted);
    });
  }
 
