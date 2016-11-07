@@ -391,6 +391,28 @@ module.exports = function(user) {
     }
   );
 
+  user.busy = function(req, callback){
+    user.findById(req.accessToken.userId, function(err, u){
+      if(err) return callback(err);
+      callback(null, u.busy);
+    });
+  }
+
+  user.remoteMethod(
+    'busy',
+    {
+      description: 'Load busy state of the given user',
+      accepts: [
+        { arg: 'req', type: "object", required: true, http: { source: 'req' } },
+      ],
+      returns: [
+        { arg: 'busy', type: 'number', root: true},
+      ],
+      http: { path: '/busy', verb: 'get' },
+      isStatic: true
+    }
+  );
+
   user.leaderboard = function(maxNumOfUsers, callback){
     if(maxNumOfUsers == undefined){
       maxNumOfUsers = 10;

@@ -72,6 +72,13 @@
       "principalId": "$authenticated",
       "permission": "ALLOW",
       "property": "score"
+    },
+    {
+      "accessType": "EXECUTE",
+      "principalType": "ROLE",
+      "principalId": "$authenticated",
+      "permission": "ALLOW",
+      "property": "busy"
     }
   ],
   "methods": {}

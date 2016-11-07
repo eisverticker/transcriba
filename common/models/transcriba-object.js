@@ -567,7 +567,7 @@ module.exports = function(Obj) {
             createdAt: new Date(),
             ownerId: user.id,
             metadata: rev.metadata,
-            content: rev.content,
+            content: Obj.cleanUpContent(rev.content, true),
             published: false,
             approved: false
           }, function(err, revision){
@@ -610,6 +610,58 @@ module.exports = function(Obj) {
     }
   );
 
+
+  /**
+   * Method for the REST occupy endpoint.
+   * Aborts the current transcription, frees
+   * the object and deletes the revision
+   */
+  Obj.free = function(req, callback){
+    var User = Obj.app.models.AppUser;
+    var userId = req.accessToken.userId;
+
+    User.findById(userId, function(err, user){
+      if(err) return callback(err);
+      if(!user.busy) return callback('user is not occupied');
+
+      Obj.occupied(req, function(err, unused, rev){
+        if(err) return callback(err);
+        if(!rev) return callback("no revision found");
+
+        rev.transcribaObject(function(err, obj){
+
+          //set the user free
+          user.busy = false;
+          user.save();
+
+          //object is now free too
+          obj.status = "free";
+          obj.save();
+
+          //delete revision
+          rev.destroy(callback);
+
+        });
+
+      });
+
+    });
+  }
+
+  Obj.remoteMethod(
+    'free',
+    {
+      description: 'User wants to abort the transcription',
+      accepts: [
+        { arg: 'req', type: "object", required: true, http: { source: 'req' } }
+      ],
+      returns: {
+        arg: 'free', type: 'boolean', root: true
+      },
+      http: { path: '/free', verb: 'post' },
+    }
+  );
+
   /**
    * Checks whether the content ist valid or not
    */
@@ -622,10 +674,18 @@ module.exports = function(Obj) {
     );
   };
 
+
   /**
    * Prepares the passed content so that it is appropriate for saving
+   * @param {TeiElement} content
+   * @param {boolean} [markUntouched] - if true isDirty is set to false
    */
-  Obj.cleanUpContent = function(content){
+  Obj.cleanUpContent = function(content, markUntouched){
+    //check for optional param
+    if(markUntouched == undefined){
+      markUntouched = false;
+    }
+
     //clean up child elements
     let children = content.children.map(
       childContent => Obj.cleanUpContent(childContent)
@@ -635,7 +695,7 @@ module.exports = function(Obj) {
     let cleanContent = {
       "type": content.type,
       "properties": content.properties,
-      "isDirty": content.isDirty,
+      "isDirty": content.isDirty && !markUntouched,
       "children": children
     };
 
@@ -747,6 +807,48 @@ module.exports = function(Obj) {
         arg: 'success', type: 'boolean', root: true
       },
       http: { path: '/:id/publish', verb: 'post' }
+    }
+  );
+
+  /**
+   * Finds the object which is currently occupied by the user who
+   * did the request, if there is no such object (user is not busy)
+   * then the request fails. It is recommended to check whether
+   * the user is busy or not before using this method
+   */
+  Obj.occupied = function(req , callback){
+    var User = Obj.app.models.AppUser;
+    var Revision = Obj.app.models.Revision;
+    var userId = req.accessToken.userId;
+
+
+    Revision.findOne({
+      where: {
+        ownerId: userId,
+        published: false
+      },
+      include: 'transcribaObject'
+    }, function(err, rev){
+      if(err) return callback(err);
+      if(!rev) return callback("no revision found");
+
+      callback(null, rev.toJSON().transcribaObject, rev, rev.transcribaObject);
+    });
+
+  }
+
+  Obj.remoteMethod(
+    'occupied',
+    {
+      description: 'If the user occupied an transcribaObject, this method will return this object',
+      accepts: [
+        { arg: 'req', type: "object", required: true, http: { source: 'req' } }
+      ],
+      returns: [
+        { arg: 'occupiedObject', type: 'object', root: true}
+      ],
+      http: { path: '/occupied', verb: 'get' },
+      isStatic: true
     }
   );
 

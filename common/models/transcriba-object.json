@@ -151,6 +151,20 @@
       "principalId": "employee",
       "permission": "ALLOW",
       "property": "import"
+    },
+    {
+      "accessType": "EXECUTE",
+      "principalType": "ROLE",
+      "principalId": "$authenticated",
+      "permission": "ALLOW",
+      "property": "occupied"
+    },
+    {
+      "accessType": "EXECUTE",
+      "principalType": "ROLE",
+      "principalId": "$authenticated",
+      "permission": "ALLOW",
+      "property": "free"
     }
   ],
   "methods": {}
