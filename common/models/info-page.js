@@ -1,3 +1,5 @@
+'use strict';
+
 var marked     = require('marked'),
     toMarkdown = marked;
 
@@ -71,7 +73,7 @@ module.exports = function(InfoPage) {
     }else{
       next();
     }
-    
+
   });
 
 };

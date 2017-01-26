@@ -1,3 +1,5 @@
+'use strict';
+
 module.exports = function(server) {
   var Role = server.models.Role;
   //var creatorModels = ['Comment'];

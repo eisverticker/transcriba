@@ -1,3 +1,5 @@
+'use strict';
+
 var config = require('../../server/config.json');
 var path = require('path');
 
@@ -146,13 +148,14 @@ module.exports = function(user) {
   user.setRole = function(id, rolename, callback){
     var roles = config.custom.rbac.roles;
     var rolePosition = roles.indexOf(rolename);
-
+    console.log("set role is being invoked - 1");
     if(rolePosition == -1) return callback("role not found");
 
     if(config.custom.rbac.hierachical){
       //delete all roles which are higher than the given role
       // and add all role which are lower than the given role
       //
+      console.log("set role is being invoked - 2");
       user.app.models.AppUser.addRoles(id, roles.slice(0,rolePosition+1), function(err){
         if(err) return callback(err);
         //hier weiter
@@ -283,6 +286,7 @@ module.exports = function(user) {
                       if (roleMapping) {
                           return callback();
                       }
+                      console.log("role is being added");
                       role.principals.create(
                           {
                               principalType: RoleMapping.USER,

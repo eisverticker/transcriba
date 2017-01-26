@@ -1,3 +1,5 @@
+'use strict';
+
 var faker = require('faker');
 var config = require('../config.json');
 

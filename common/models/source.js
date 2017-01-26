@@ -1,3 +1,5 @@
+'use strict';
+
 module.exports = function(Source) {
 
   Source.afterRemote( 'replaceOrCreate', function( ctx, source, next) {
