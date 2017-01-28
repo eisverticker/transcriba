@@ -5,7 +5,7 @@ var boot = require('loopback-boot');
 var path = require('path');
 var bodyParser = require('body-parser');
 var engine = require('ejs-mate');
-var config = require('./config.json')
+var config = require('./config.json');
 
 var app = module.exports = loopback();
 

@@ -12,24 +12,24 @@ var config = require('../config.json');
  * usually refer to this role name)
  */
 module.exports = function(server) {
-  var User = server.models.AppUser,
-    Role = server.models.Role,
-    RoleMapping = server.models.RoleMapping;
+  var User = server.models.AppUser;
+  var Role = server.models.Role;
+  var RoleMapping = server.models.RoleMapping;
 
   var roles = config.custom.rbac.roles.slice();
 
   //ensure that administrator is the last role
-  if(roles.indexOf('administrator') === -1){
+  if (roles.indexOf('administrator') === -1) {
     roles.push('administrator');
   }
 
-  if(roles.indexOf('administrator') !== roles.length-1){
-    throw "administrator role is not the last role";
+  if (roles.indexOf('administrator') !== roles.length - 1) {
+    throw 'administrator role is not the last role';
   }
   //
 
   var options = {
-    isHierachical : config.custom.rbac.hierachical
+    isHierachical: config.custom.rbac.hierachical,
   };
 
   /**
@@ -37,37 +37,36 @@ module.exports = function(server) {
    */
   var createRoles = function(roles, options, previousRoleObj, callback) {
     if (roles.length > 0) {
-
       var roleName = roles.shift();
       //console.log(roleName);
 
       Role.findOrCreate({
         where: {
-          "name": roleName
-        }
+          'name': roleName,
+        },
       }, {
-        "name": roleName
+        'name': roleName,
       }, function(err, roleObj) {
         if (err) callback(err);
 
         if (previousRoleObj !== null && options.isHierachical) {
           //console.log(previousRoleObj.principals);
           var  principal = {
-              principalType: RoleMapping.ROLE,
-              principalId: roleObj.id
+            principalType: RoleMapping.ROLE,
+            principalId: roleObj.id,
           };
 
           previousRoleObj.principals.findOne(principal,
             function(err, mapping) {
               if (err) return callback(err);
 
-              if(!mapping){
-                previousRoleObj.principals.create(principal, function(err){
-                  if(err) return callback(err);
+              if (!mapping) {
+                previousRoleObj.principals.create(principal, function(err) {
+                  if (err) return callback(err);
 
                   return createRoles(roles, options, roleObj, callback);
                 });
-              }else{
+              } else {
                 return createRoles(roles, options, roleObj, callback);
               }
             }
@@ -75,13 +74,9 @@ module.exports = function(server) {
         } else {
           createRoles(roles, options, roleObj, callback);
         }
-
       });
-
     } else {
-
       callback(null, previousRoleObj);
-
     }
   };
 
@@ -90,13 +85,12 @@ module.exports = function(server) {
 
     User.findOne({
       where: {
-        'username': config.custom.admin.username
-      }
+        'username': config.custom.admin.username,
+      },
     }, function(err, user) {
       if (err) throw err;
 
       if (!user) {
-
         /*
          * Create Administrator
          */
@@ -104,39 +98,37 @@ module.exports = function(server) {
           username: config.custom.admin.username,
           email: config.custom.admin.email,
           password: config.custom.admin.password,
-          emailVerified: true
+          emailVerified: true,
         }, function(err, user) {
           if (err) throw err;
 
           User.setRole(user.id, adminRole.name, function(err) {
             if (err) throw err;
 
-            console.log("Administrator " + user.username + " was successfully created");
+            console.log(
+              'Administrator ' + user.username + ' was successfully created'
+            );
           });
-
         });
 
         /*
          * Create Bot user
          */
-         User.create({
-           username: config.custom.bot.username,
-           email: config.custom.bot.email,
-           password: config.custom.bot.password,
-           emailVerified: true
-         }, function(err, user){
-           if(err) return callback(err);
+        User.create({
+          username: config.custom.bot.username,
+          email: config.custom.bot.email,
+          password: config.custom.bot.password,
+          emailVerified: true,
+        }, function(err, user) {
+          if (err) throw err;
 
-           User.setRole(user.id, config.custom.rbac.defaultRole, function(err){
-             if(err) throw err;
+          User.setRole(user.id, config.custom.rbac.defaultRole, function(err) {
+            if (err) throw err;
 
-             console.log("Bot " + user.username + " was successfully created");
-           })
-         });
-
+            console.log('Bot ' + user.username + ' was successfully created');
+          });
+        });
       }
     });
-
   });//end of create roles call
-
 };

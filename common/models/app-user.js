@@ -4,17 +4,15 @@ var config = require('../../server/config.json');
 var path = require('path');
 
 module.exports = function(user) {
-
   user.minimumRevisionVotingScore = 30;
   user.maximumRecentRevisionVotes = 20;
 
-  user.afterRemote('confirm', function(context, result, next){
-
+  user.afterRemote('confirm', function(context, result, next) {
     //if the user is confirmed he will get the default role
     var role = config.custom.rbac.defaultRole;
 
-    user.app.models.AppUser.setRole(context.req.query.uid, role, function(err){
-      if(err) return next(err);
+    user.app.models.AppUser.setRole(context.req.query.uid, role, function(err) {
+      if (err) return next(err);
 
       return next();
     });
@@ -32,14 +30,14 @@ module.exports = function(user) {
       template: path.resolve(__dirname, '../../server/views/verify.ejs'),
       user: user,
       redirect: '/verified',
-      appName: config.custom.appName
+      appName: config.custom.appName,
     };
 
     //local host doesn't matter if people don't access the local server directly
     // so we have to take care that the verification link points to the external ip
-    if(!config.custom.isLocalServerEnvironment){
+    if (!config.custom.isLocalServerEnvironment) {
       options.host = config.custom.appUrl;
-      options.port = "80";
+      options.port = '80';
     }
 
     user.verify(options, function(err, response) {
@@ -49,7 +47,6 @@ module.exports = function(user) {
       return next();
     });
   });
-
 
   //send password reset link when requested
   user.on('resetPasswordRequest', function(info) {
@@ -61,7 +58,7 @@ module.exports = function(user) {
       to: info.email,
       from: config.custom.senderMail,
       subject: 'Password reset',
-      html: html
+      html: html,
     }, function(err) {
       if (err) return console.log('> error sending password reset email');
       console.log('> sending password reset email to:', info.email);
@@ -75,22 +72,21 @@ module.exports = function(user) {
   * @param {string} err;
   * @param {boolean} hasRole;
   */
- user.prototype.hasRole = function(roleName, callback){
-   this.roles(function(err, roles){
-     if(err) return callback(err);
+  user.prototype.hasRole = function(roleName, callback) {
+    this.roles(function(err, roles) {
+      if (err) return callback(err);
 
-     var roleNames = roles.map(function(role){
-       return role.name;
-     });
+      var roleNames = roles.map(function(role) {
+        return role.name;
+      });
 
-     if(roleNames.indexOf(roleName) !== -1 ){
-       return callback(null, true);
-     }else{
-       return callback(null, false);
-     }
-
-   });
- }
+      if (roleNames.indexOf(roleName) !== -1) {
+        return callback(null, true);
+      } else {
+        return callback(null, false);
+      }
+    });
+  };
 
  /**
   * Checks whether the user is mature enough for voting or not
@@ -98,14 +94,14 @@ module.exports = function(user) {
   * @param {string} err;
   * @param {boolean} isEligible;
   */
- user.prototype.isEligibleVoter = function(callback){
-   var me = this;
-   this.hasRole('trusted', function(err, isTrusted){
-     if(err) callback(err);
+  user.prototype.isEligibleVoter = function(callback) {
+    var me = this;
+    this.hasRole('trusted', function(err, isTrusted) {
+      if (err) callback(err);
 
-     callback(null, me.score >= user.minimumRevisionVotingScore || isTrusted);
-   });
- }
+      callback(null, me.score >= user.minimumRevisionVotingScore || isTrusted);
+    });
+  };
 
  /**
   * Returns the number of recent votes from the current user
@@ -115,26 +111,24 @@ module.exports = function(user) {
   * @param {string} err;
   * @param {number} numOfVotes;
   */
- user.prototype.numOfRecentVotes = function(objectType, callback){
+  user.prototype.numOfRecentVotes = function(objectType, callback) {
+    var dateDistance = 1000 * 60 * 60 * 24;
 
-   var dateDistance = 1000*60*60*24;
+    user.app.models.Voting.count({
+      'userId': this.id,
+      'objectType': objectType,
+      'createdAt': {
+        'between': [
+          new Date(Date.now() - dateDistance),
+          new Date(),
+        ],
+      },
+    }, function(err, count) {
+      if (err) return callback(err);
 
-   user.app.models.Voting.count({
-     "userId": this.id,
-     "objectType": objectType,
-     "createdAt": {
-       "between": [
-         new Date(Date.now()-dateDistance),
-         new Date()
-       ]
-     }
-   }, function(err, count){
-     if(err) return callback(err);
-
-     callback(null, count);
-   });
-
- }
+      callback(null, count);
+    });
+  };
 
  /**
   * The effect of this method depends on the server settings, but
@@ -145,28 +139,32 @@ module.exports = function(user) {
   * @callback requestCallback
   * @param {string} err
   */
-  user.setRole = function(id, rolename, callback){
+  user.setRole = function(id, rolename, callback) {
     var roles = config.custom.rbac.roles;
     var rolePosition = roles.indexOf(rolename);
-    console.log("set role is being invoked - 1");
-    if(rolePosition == -1) return callback("role not found");
+    console.log('set role is being invoked - 1');
+    if (rolePosition == -1) return callback('role not found');
 
-    if(config.custom.rbac.hierachical){
+    if (config.custom.rbac.hierachical) {
       //delete all roles which are higher than the given role
       // and add all role which are lower than the given role
       //
-      console.log("set role is being invoked - 2");
-      user.app.models.AppUser.addRoles(id, roles.slice(0,rolePosition+1), function(err){
-        if(err) return callback(err);
-        //hier weiter
-        user.app.models.AppUser.removeRoles(id,roles.slice(rolePosition+1), callback);
-      });
-    }else{
-      user.app.models.AppUser.addRole(id,rolename, callback);
+      console.log('set role is being invoked - 2');
+      user.app.models.AppUser.addRoles(id, roles.slice(0, rolePosition + 1),
+        function(err) {
+          if (err) return callback(err);
+          //hier weiter
+          user.app.models.AppUser.removeRoles(
+            id,
+            roles.slice(rolePosition + 1),
+            callback
+          );
+        }
+      );
+    } else {
+      user.app.models.AppUser.addRole(id, rolename, callback);
     }
-
   };
-
 
   /**
    * Checks if the user is permitted to vote for the given revision
@@ -176,15 +174,14 @@ module.exports = function(user) {
    * @param {boolean} isAllowed
    * @param {object} permissionDetails
    */
-  user.prototype.isAllowedToVoteForRevision = function(revision, callback){
-
+  user.prototype.isAllowedToVoteForRevision = function(revision, callback) {
     var me = this;
 
-    this.isEligibleVoter(function(err, eligible){
-      if(err) return callback(err);
+    this.isEligibleVoter(function(err, eligible) {
+      if (err) return callback(err);
 
-      me.numOfRecentVotes("Revision", function(err, recentVotes){
-        if(err) return callback(err);
+      me.numOfRecentVotes('Revision', function(err, recentVotes) {
+        if (err) return callback(err);
 
         return callback(null,
           eligible &&
@@ -193,105 +190,105 @@ module.exports = function(user) {
           ,
           {
             'eligibleVoter': eligible,
-            'maximumVotesReached': recentVotes >= user.maximumRecentRevisionVotes,
-            'isOwner': revision.ownerId.toJSON() == me.id.toJSON()
+            'maximumVotesReached':
+              recentVotes >= user.maximumRecentRevisionVotes,
+            'isOwner': revision.ownerId.toJSON() == me.id.toJSON(),
           }
         );
-
       });
-
     });
-
-  }
+  };
 
   user.remoteMethod(
       'setRole',
-      {
-          description: 'Give the user this role',
-          accessType: 'WRITE',
-          accepts: [
-            {arg: 'id', type: 'string' },
-            {arg: 'rolename', type: 'string' }
-          ],
-          http: {path: '/roles', verb: 'post'}
-      }
+    {
+      description: 'Give the user this role',
+      accessType: 'WRITE',
+      accepts: [
+            {arg: 'id', type: 'string'},
+            {arg: 'rolename', type: 'string'},
+      ],
+      http: {path: '/roles', verb: 'post'},
+    }
   );
 
-  user.addRoles = function(id, rolenames, callback){
-    if(rolenames.length > 0){
+  user.addRoles = function(id, rolenames, callback) {
+    if (rolenames.length > 0) {
       var role = rolenames.pop();
-      user.app.models.AppUser.addRole(id,role, function(err){
-        if(err) return callback(err);
+      user.app.models.AppUser.addRole(id, role, function(err) {
+        if (err) return callback(err);
 
         user.app.models.AppUser.addRoles(id, rolenames, callback);
-      })
-    }else{
+      });
+    } else {
       callback(null);
     }
   };
 
-  user.removeRoles = function(id, rolenames, callback){
-    if(rolenames.length > 0){
+  user.removeRoles = function(id, rolenames, callback) {
+    if (rolenames.length > 0) {
       var role = rolenames.pop();
 
-      user.app.models.AppUser.removeRole(id,role, function(err){
-        if(err) return callback(err);
+      user.app.models.AppUser.removeRole(id, role, function(err) {
+        if (err) return callback(err);
 
         user.app.models.AppUser.removeRoles(id, rolenames, callback);
-      })
-    }else{
+      });
+    } else {
       callback(null);
     }
   };
 
   /**
    * Add the user to the given role by name.
-   * (original source: https://gist.github.com/leftclickben/aa3cf418312c0ffcc547)
+   * (original src: https://gist.github.com/leftclickben/aa3cf418312c0ffcc547)
    * @param {string} roleName
    * @param {Function} callback
    */
   user.addRole = function(id, rolename, callback) {
-      var Role = user.app.models.Role;
-      var RoleMapping = user.app.models.RoleMapping;
+    var Role = user.app.models.Role;
+    var RoleMapping = user.app.models.RoleMapping;
 
-      var error, userId = id;
-      Role.findOne(
-          {
-              where: { name: rolename }
-          },
+    var error;
+    var userId = id;
+
+    Role.findOne(
+      {
+        where: {name: rolename},
+      },
           function(err, role) {
-              if (err) {
-                  return callback(err);
-              }
+            if (err) {
+              return callback(err);
+            }
 
-              if (!role) {
-                  error = new Error('Role ' + rolename + ' not found.');
-                  error['http_code'] = 404;
-                  return callback(error);
-              }
+            if (!role) {
+              error = new Error('Role ' + rolename + ' not found.');
+              error['http_code'] = 404;
+              return callback(error);
+            }
 
-              RoleMapping.findOne(
-                  {
-                      where: {
-                          principalType: RoleMapping.USER,
-                          principalId: userId,
-                          roleId: role.id
-                      }
-                  },
+            RoleMapping.findOne(
+              {
+                where: {
+                  principalType: RoleMapping.USER,
+                  principalId: userId,
+                  roleId: role.id,
+                },
+              },
                   function(err, roleMapping) {
-                      if (err) {
-                          return callback(err);
-                      }
+                    if (err) {
+                      return callback(err);
+                    }
 
-                      if (roleMapping) {
-                          return callback();
-                      }
-                      console.log("role is being added");
-                      role.principals.create(
-                          {
-                              principalType: RoleMapping.USER,
-                              principalId: userId
-                          },
+                    if (roleMapping) {
+                      return callback();
+                    }
+                    console.log('role is being added');
+                    role.principals.create(
+                      {
+                        principalType: RoleMapping.USER,
+                        principalId: userId,
+                      },
                           callback
                       );
                   }
@@ -301,18 +298,18 @@ module.exports = function(user) {
   };
   user.remoteMethod(
       'addRole',
-      {
-        accepts: [
+    {
+      accepts: [
           {arg: 'id', type: 'string'},
-          {arg: 'rolename', type: 'string' }
-        ],
-        http: {path: '/:id/roles', verb: 'put'}
-      }
+          {arg: 'rolename', type: 'string'},
+      ],
+      http: {path: '/:id/roles', verb: 'put'},
+    }
   );
 
   /**
    * Remove the user from the given role by name.
-   * (original source: https://gist.github.com/leftclickben/aa3cf418312c0ffcc547)
+   * (original src: https://gist.github.com/leftclickben/aa3cf418312c0ffcc547)
    *
    * @param {string} roleName
    * @param {Function} callback
@@ -321,41 +318,41 @@ module.exports = function(user) {
     var Role = user.app.models.Role;
     var RoleMapping = user.app.models.RoleMapping;
 
-      var error, userId = id;
+    var userId = id;
 
-      Role.findOne(
-          {
-              where: { name: rolename }
-          },
+    Role.findOne(
+      {
+        where: {name: rolename},
+      },
           function(err, roleObj) {
-              if (err) {
-                  return callback(err);
-              }
+            if (err) {
+              return callback(err);
+            }
 
-              if (!roleObj) {
+            if (!roleObj) {
                   //error = new Error('Role ' + rolename + ' not found.');
                   //error['http_code'] = 404;
                   //return callback(error);
-                  return callback(null);
-              }
-              RoleMapping.findOne(
-                  {
-                      where: {
-                          principalType: RoleMapping.USER,
-                          principalId: userId,
-                          roleId: roleObj.id
-                      }
-                  },
+              return callback(null);
+            }
+            RoleMapping.findOne(
+              {
+                where: {
+                  principalType: RoleMapping.USER,
+                  principalId: userId,
+                  roleId: roleObj.id,
+                },
+              },
                   function(err, roleMapping) {
-                      if (err) {
-                          return callback(err);
-                      }
+                    if (err) {
+                      return callback(err);
+                    }
 
-                      if (!roleMapping) {
-                          return callback();
-                      }
+                    if (!roleMapping) {
+                      return callback();
+                    }
 
-                      roleMapping.destroy(callback);
+                    roleMapping.destroy(callback);
                   }
               );
           }
@@ -363,92 +360,92 @@ module.exports = function(user) {
   };
   user.remoteMethod(
       'removeRole',
-      {
-          description: 'Remove User to the named role',
-          accessType: 'WRITE',
-          accepts: [
-            {arg: 'id', type: 'string' },
-            {arg: 'rolename', type: 'string' }
-          ],
-          http: {path: '/:id/roles/:rolename', verb: 'delete'}
-      }
+    {
+      description: 'Remove User to the named role',
+      accessType: 'WRITE',
+      accepts: [
+            {arg: 'id', type: 'string'},
+            {arg: 'rolename', type: 'string'},
+      ],
+      http: {path: '/:id/roles/:rolename', verb: 'delete'},
+    }
   );
 
-  user.score = function(req, callback){
-    user.findById(req.accessToken.userId, function(err, u){
-      if(err) return callback(err);
+  user.score = function(req, callback) {
+    user.findById(req.accessToken.userId, function(err, u) {
+      if (err) return callback(err);
       callback(null, u.score);
     });
-  }
+  };
 
   user.remoteMethod(
     'score',
     {
       description: 'Load the number of score points of the given user',
       accepts: [
-        { arg: 'req', type: "object", required: true, http: { source: 'req' } },
+        {arg: 'req', type: 'object', required: true, http: {source: 'req'}},
       ],
       returns: [
-        { arg: 'score', type: 'number', root: true},
+        {arg: 'score', type: 'number', root: true},
       ],
-      http: { path: '/score', verb: 'get' },
-      isStatic: true
+      http: {path: '/score', verb: 'get'},
+      isStatic: true,
     }
   );
 
-  user.busy = function(req, callback){
-    user.findById(req.accessToken.userId, function(err, u){
-      if(err) return callback(err);
+  user.busy = function(req, callback) {
+    user.findById(req.accessToken.userId, function(err, u) {
+      if (err) return callback(err);
       callback(null, u.busy);
     });
-  }
+  };
 
   user.remoteMethod(
     'busy',
     {
       description: 'Load busy state of the given user',
       accepts: [
-        { arg: 'req', type: "object", required: true, http: { source: 'req' } },
+        {arg: 'req', type: 'object', required: true, http: {source: 'req'}},
       ],
       returns: [
-        { arg: 'busy', type: 'number', root: true},
+        {arg: 'busy', type: 'number', root: true},
       ],
-      http: { path: '/busy', verb: 'get' },
-      isStatic: true
+      http: {path: '/busy', verb: 'get'},
+      isStatic: true,
     }
   );
 
-  user.leaderboard = function(maxNumOfUsers, callback){
-    if(maxNumOfUsers == undefined){
+  user.leaderboard = function(maxNumOfUsers, callback) {
+    if (maxNumOfUsers == undefined) {
       maxNumOfUsers = 10;
     }
 
     user.find({
       limit: maxNumOfUsers,
-      order: 'score desc'
-    }, function(err, users){
-      if(err) return callback(err);
-      callback(null, users.map(function(u){
+      order: 'score desc',
+    }, function(err, users) {
+      if (err) return callback(err);
+      callback(null, users.map(function(u) {
         return {
           'username': u.username,
-          'score': u.score
-        }
+          'score': u.score,
+        };
       }));
     });
-  }
+  };
 
   user.remoteMethod(
     'leaderboard',
     {
       description: 'Load the best users',
       accepts: [
-        { arg: 'maxNumOfUsers', type: "number" },
+        {arg: 'maxNumOfUsers', type: 'number'},
       ],
       returns: [
-        { arg: 'scores', type: 'array', root: true},
+        {arg: 'scores', type: 'array', root: true},
       ],
-      http: { path: '/leaderboard', verb: 'get' },
-      isStatic: true
+      http: {path: '/leaderboard', verb: 'get'},
+      isStatic: true,
     }
   );
 
@@ -456,22 +453,27 @@ module.exports = function(user) {
   user.beforeRemote('login', function(context, instance, next) {
     var reqBody = context.req.body;
 
-    if(
-      (reqBody.username !== undefined && reqBody.username == config.custom.bot.username) ||
-      (reqBody.email !== undefined && reqBody.email == config.custom.bot.email)
-    ){
+    if (
+      (
+        reqBody.username !== undefined &&
+        reqBody.username == config.custom.bot.username
+      ) ||
+      (
+        reqBody.email !== undefined &&
+        reqBody.email == config.custom.bot.email
+      )
+    ) {
       next(new Error('cannot login as bot'));
-    }else{
+    } else {
       next();
     }
-
   });
 
-  user.numOfEligibleVoters = function(callback){
+  user.numOfEligibleVoters = function(callback) {
     user.count({
       score: {
-          gt: user.minimumRevisionVotingScore-1,
-      }
+        gt: user.minimumRevisionVotingScore - 1,
+      },
     }, callback);
   };
 
@@ -483,5 +485,4 @@ module.exports = function(user) {
   user.disableRemoteMethodByName('__findById__roles', false);
   user.disableRemoteMethodByName('__destroyById__roles', false);
   user.disableRemoteMethodByName('__exists__roles', false);
-
 };

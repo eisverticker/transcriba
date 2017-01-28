@@ -1,8 +1,7 @@
 'use strict';
 
 module.exports = function(Source) {
-
-  Source.afterRemote( 'replaceOrCreate', function( ctx, source, next) {
+  Source.afterRemote('replaceOrCreate', function(ctx, source, next) {
     var Collection = Source.app.models.Collection;
 
     var sourceName = source.title;
@@ -12,19 +11,19 @@ module.exports = function(Source) {
     // you can write your lines here
     //
     Collection.create({
-      "name": sourceName,
-      "description": "Automatically generated collection of objects which were imported from "+sourceName,
-      "public": true,
-      "locked": true
-    }, function(err, collection){
-      if(err) return next(err);
+      'name': sourceName,
+      'description': 'Automatically generated collection \
+      of objects which were imported from ' + sourceName,
+      'public': true,
+      'locked': true,
+    }, function(err, collection) {
+      if (err) return next(err);
 
       source.collectionId = collection.id;
       source.save();
 
       next();
-    })
-
+    });
   });
 
   /**
@@ -35,35 +34,35 @@ module.exports = function(Source) {
    * @param {string} err
    * @param {object} sourceSummary
    */
-  Source.summary = function(id, callback){
-    Source.findById(id, function(err, source){
-      if(err) return callback(err);
-      if(!source) return callback('source not found');
+  Source.summary = function(id, callback) {
+    Source.findById(id, function(err, source) {
+      if (err) return callback(err);
+      if (!source) return callback('source not found');
 
       callback(null,
         {
-        'id': source.id,
-        'title': source.title,
-        'info_url': source.info_url,
-        'logo_url': source.logo_url
+          'id': source.id,
+          'title': source.title,
+          'info_url': source.info_url,
+          'logo_url': source.logo_url,
         }
       );
     });
-  }
+  };
 
   Source.remoteMethod(
     'summary',
     {
-      description: 'Returns some details for a given source, which are not hidden',
+      description: 'Returns some details for a given source, \
+      which are not hidden',
       accepts: [
-        { arg: 'id', type: 'string', required: true }
+        {arg: 'id', type: 'string', required: true},
       ],
       returns: [
-        { arg: 'details', type: 'object', root: true}
+        {arg: 'details', type: 'object', root: true},
       ],
-      http: { path: '/:id/summary', verb: 'get' },
-      isStatic: true
+      http: {path: '/:id/summary', verb: 'get'},
+      isStatic: true,
     }
   );
-
 };

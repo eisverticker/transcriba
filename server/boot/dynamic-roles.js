@@ -8,7 +8,6 @@ module.exports = function(server) {
   /*Role.registerResolver('$voter', function(role, context, cb) {
     console.log(context.modelName);
 
-
     // Q: Is the current request accessing a supported model?
     if (votingModels.indexOf(context.modelName) === -1) {
       // A: No. This model is not supported
@@ -26,6 +25,4 @@ module.exports = function(server) {
     return cb(null, true);
 
   });*/
-
-
 };

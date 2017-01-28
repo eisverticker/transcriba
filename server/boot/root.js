@@ -8,26 +8,24 @@ module.exports = function(server) {
   server.use(router);
 
   //home route which is welcoming the user
-  router.get('/home', function(req, res, next){
+  router.get('/home', function(req, res, next) {
     res.render('home', {
-      "title": "Hallo"
+      'title': 'Hallo',
     });
   });
 
-
-  router.get('/verified', function(req, res, next){
-    res.render('verified',{
-      "title": "Verifizierung erfolgreich!"
+  router.get('/verified', function(req, res, next) {
+    res.render('verified', {
+      'title': 'Verifizierung erfolgreich!',
     });
-  })
+  });
 
   //show password reset form (loopback-example-user-management-code [MIT])
   router.get('/reset-password', function(req, res, next) {
-
     if (!req.accessToken) return res.sendStatus(401);
     res.render('password-reset', {
       accessToken: req.accessToken.id,
-      title: "Password reset"
+      title: 'Password reset',
     });
   });
 
@@ -44,17 +42,17 @@ module.exports = function(server) {
 
     server.models.AppUser.findById(req.accessToken.userId, function(err, user) {
       if (err) return res.sendStatus(404);
+
       user.updateAttribute('password', req.body.password, function(err, user) {
-      if (err) return res.sendStatus(404);
+        if (err) return res.sendStatus(404);
         console.log('> password reset processed successfully');
         res.render('response', {
           title: 'Password reset success',
           content: 'Your password has been reset successfully',
           redirectTo: '/',
-          redirectToLinkText: 'Log in'
+          redirectToLinkText: 'Log in',
         });
       });
     });
   });
-
 };
