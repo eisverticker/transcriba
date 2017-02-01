@@ -1,16 +1,20 @@
-# Basic Server-Application
-This application extends the sample Loopback application (with mongodb) and its main purpose is to
-support front-end applications with RESTful services which expose data from a database.
-It also offers user, authentication and authorisation services to prevent
-unwanted access.
-Some basic templating with ejs and ejs-mate is also integrated so that it is
-possible to implement some basic web pages for server configuration or similar.
+# Transcriba
 
-## Prerequisits
+<a href="http://transcriba.de"><img src="https://avatars2.githubusercontent.com/u/25454624?v=3&s=200" align="left" hspace="10" vspace="6"></a>
+
+**Transcriba** is a transcription platform based on the loopback framework. The project was started in 2016 by Alexander Noack who developed the first prototype within the scope of his bachelor thesis at the Technical University of Ilmenau.
+
+## Resources
+
+* API Reference (To-Do)
+* Release Notes (To-Do)
+* Documentation (To-Do)
+
+## Installation
+### Prerequisits
 * node.js must be installed
 * email provider/account for sending registration mails among others.
 
-## Installation
 ### First step
 Install mongodb.
 
@@ -22,3 +26,6 @@ Then the preinstallation-script should be automatically run so follow the instru
 Your basic application should be ready, you may read the loopback documentation now
 or install a client angular2 application like my angular2-loopback-boilerplate.
 Also you can remove config.json and datasources.json from .gitignore and customize the postinstall.js script if you want so.
+
+
+
