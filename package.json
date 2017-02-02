@@ -1,5 +1,5 @@
 {
-  "name": "transcriba-backend",
+  "name": "transcriba-platform",
   "version": "1.0.0",
   "main": "server/server.js",
   "scripts": {
@@ -38,9 +38,10 @@
     "nsp": "^2.6.2"
   },
   "repository": {
-    "type": "",
-    "url": ""
+    "type": "git",
+    "url": "https://github.com/transcriba/transcriba.git"
   },
   "license": "MIT",
-  "description": "transcriba-backend"
+  "description": "Transcriba - extracting data from manuscripts",
+  "homepage": "http://transcriba.de"
 }
