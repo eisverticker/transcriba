@@ -668,13 +668,13 @@ module.exports = function(Obj) {
    */
   Obj.cleanUpContent = function(content, markUntouched) {
     //check for optional param
-    if (markUntouched == undefined) {
+    if (markUntouched === undefined) {
       markUntouched = false;
     }
 
     //clean up child elements
     let children = content.children.map(
-      childContent => Obj.cleanUpContent(childContent)
+      childContent => Obj.cleanUpContent(childContent, markUntouched)
     );
 
     //cleaned structure
