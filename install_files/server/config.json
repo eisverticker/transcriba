@@ -3,7 +3,9 @@
   "host": "0.0.0.0",
   "port": 3001,
   "remoting": {
+    "context": false,
     "rest": {
+      "handleErrors": false,
       "normalizeHttpPath": false,
       "xml": false
     },
@@ -15,10 +17,8 @@
       "extended": true,
       "limit": "100kb"
     },
-    "cors": false,
-    "handleErrors": false
+    "cors": false
   },
-  "legacyExplorer": false,
   "custom": {
     "appName": "Transcriba",
     "isLocalServerEnvironment": true,
