@@ -11,7 +11,7 @@ var sharp = require('sharp');
 var sizeOf = require('image-size');
 var config = require('../../server/config.json');
 
-//var ejs = require('ejs'),
+// var ejs = require('ejs'),
 
 module.exports = function(Obj) {
   Obj.tileSize = 256;
@@ -33,36 +33,36 @@ module.exports = function(Obj) {
     };
 
     sharp(data)
-    .toFile('imports/' + id + '/raw.jpg', function(err) {
-      if (err) return callback(err);
-      completeTask();
-    });
+      .toFile('imports/' + id + '/raw.jpg', function(err) {
+        if (err) return callback(err);
+        completeTask();
+      });
 
     sharp(data).resize(undefined, 512)
-    .toFile('imports/' + id + '/overview.jpg',
-      function(err) {
-        if (err) return callback(err);
-        completeTask();
-      }
-    );
+      .toFile('imports/' + id + '/overview.jpg',
+        function(err) {
+          if (err) return callback(err);
+          completeTask();
+        }
+      );
 
     sharp(data).resize(undefined, 128)
-    .toFile('imports/' + id + '/thumbnail.jpg',
-      function(err) {
-        if (err) return callback(err);
-        completeTask();
-      }
-    );
+      .toFile('imports/' + id + '/thumbnail.jpg',
+        function(err) {
+          if (err) return callback(err);
+          completeTask();
+        }
+      );
 
     sharp(data)
-    .tile({
-      size: Obj.tileSize,
-      layout: 'google',
-    })
-    .toFile('imports/' + id + '/tiled.dzi', function(err) {
-      if (err) return callback(err);
-      completeTask();
-    });
+      .tile({
+        size: Obj.tileSize,
+        layout: 'google',
+      })
+      .toFile('imports/' + id + '/tiled.dzi', function(err) {
+        if (err) return callback(err);
+        completeTask();
+      });
   };
 
   /**
@@ -107,7 +107,7 @@ module.exports = function(Obj) {
     var Discussion = Obj.app.models.Discussion;
     var Source = Obj.app.models.Source;
 
-    //ensure that (externalID, sourceId) is unique
+    // ensure that (externalID, sourceId) is unique
     Obj.findOne({
       where: {
         externalID: data.externalId,
@@ -117,7 +117,7 @@ module.exports = function(Obj) {
       if (err) return callback(err);
       if (object) return callback('object was already imported');
 
-      //alter voting if the user already voted in the past
+      // alter voting if the user already voted in the past
       Source.findOne({
         'where': {
           id: data.sourceId,
@@ -140,7 +140,7 @@ module.exports = function(Obj) {
               }, function(err, discussion) {
                 if (err) return callback(err);
 
-              //create object to get a new id
+                // create object to get a new id
                 Obj.create({
                   'title': objectMetadata.title,
                   'sourceId': source.id,
@@ -153,43 +153,43 @@ module.exports = function(Obj) {
                   if (obj == null) return callback("couldn't create object");
 
                   download(
-                  objectMetadata.file_url.replace('{file}',
-                  objectMetadata.resolutions.max)
-                )
-                .then(
-                  (data) => {
-                    //ensure that all needed directories do exist
-                    fsExtra.ensureDir('imports/' + obj.id, function(err) {
-                      if (err) return callback(err);
-
-                      //create thumbnails, tiles and more
-                      Obj.generateImages(data, obj.id, function(err) {
-                        if (err) return callback(err);
-
-                        //create inital revision (user = bot)
-                        Obj.createFirstRevision(obj, function(err) {
+                    objectMetadata.file_url.replace('{file}',
+                      objectMetadata.resolutions.max)
+                  )
+                    .then(
+                      (data) => {
+                        // ensure that all needed directories do exist
+                        fsExtra.ensureDir('imports/' + obj.id, function(err) {
                           if (err) return callback(err);
 
-                          //automatically add to source related collection
-                          source.collection(function(err, collection) {
+                          // create thumbnails, tiles and more
+                          Obj.generateImages(data, obj.id, function(err) {
                             if (err) return callback(err);
 
-            /**
+                            // create inital revision (user = bot)
+                            Obj.createFirstRevision(obj, function(err) {
+                              if (err) return callback(err);
+
+                              // automatically add to source related collection
+                              source.collection(function(err, collection) {
+                                if (err) return callback(err);
+
+                                /**
              * currently not available because of relation problem
              * see https://github.com/eisverticker/transcriba-backend/issues/1
              */
-            //add transcribaObject to that collection
-            /*collection.transcribaObjects.add(obj, function(err){
+                                // add transcribaObject to that collection
+                                /* collection.transcribaObjects.add(obj, function(err){
               if(err) return callback(err);
               callback(null, obj.id );
-            })*/
-                            callback(null, obj.id);
+            }) */
+                                callback(null, obj.id);
+                              });
+                            });
                           });
                         });
-                      });
-                    });
-                  }
-                );//end download
+                      }
+                    );// end download
                 });
               });
             } catch (error) {
@@ -256,19 +256,6 @@ module.exports = function(Obj) {
       isStatic: true,
     }
   );
-
-  var printImage = function(path, file, imageType, callback) {
-    fs.stat(path, function(err, stats) {
-      if (err) return callback(err);
-      if (!stats.isDirectory()) return callback('dir does not exist');
-
-      fs.readFile(path + file, (err, data) => {
-        if (err) return callback(err);
-
-        return callback(null, data, 'image/' + imageType);
-      });
-    });
-  };
 
   Obj.thumbnail = function(id, callback) {
     var path = 'imports/' + id + '/';
@@ -345,7 +332,7 @@ module.exports = function(Obj) {
    * Returns number of zoomsteps which are possible
    */
   Obj.zoomsteps = function(id, callback) {
-    //integer logarithm (base 2)
+    // integer logarithm (base 2)
     function intLog2(value) {
       var max = 1;
       var i = 0;
@@ -362,11 +349,11 @@ module.exports = function(Obj) {
 
       var greatestSideLength, numOfTiles;
 
-      //we are only interessted in the greatest of both sides of the image
+      // we are only interessted in the greatest of both sides of the image
       greatestSideLength = Math.max(width, height);
-      //now we need to know how many tiles are needed to cover the greatest side
+      // now we need to know how many tiles are needed to cover the greatest side
       numOfTiles = greatestSideLength / Obj.tileSize;
-      //log2 of the previous value +1 is the number of zoom steps
+      // log2 of the previous value +1 is the number of zoom steps
       callback(null, intLog2(numOfTiles) + 1);
     });
   };
@@ -462,11 +449,11 @@ module.exports = function(Obj) {
   Obj.latestPermissions = function(id, req, callback) {
     var User = Obj.app.models.AppUser;
 
-    //these lines were added to support such requests from guests
+    // these lines were added to support such requests from guests
     if (req.accessToken == undefined) {
-      //guests are not allowed to vote
+      // guests are not allowed to vote
       return callback(null,
-        false, //no voting permissions
+        false, // no voting permissions
         {
           'eligibleVoter': false,
           'maximumVotesReached': false,
@@ -569,12 +556,12 @@ module.exports = function(Obj) {
           }, function(err, revision) {
             if (err) return callback(err);
 
-            //set user to busy so that he has to finish the transcription on this
+            // set user to busy so that he has to finish the transcription on this
             // object before he starts the next one
             user.busy = true;
             user.save();
 
-            //set object status to occupied so that there are no edit conflicts
+            // set object status to occupied so that there are no edit conflicts
             // between users
             obj.status = 'occupied';
             obj.occupiedAt = new Date();
@@ -620,15 +607,15 @@ module.exports = function(Obj) {
         if (!rev) return callback('no revision found');
 
         rev.transcribaObject(function(err, obj) {
-          //set the user free
+          // set the user free
           user.busy = false;
           user.save();
 
-          //object is now free too
+          // object is now free too
           obj.status = 'free';
           obj.save();
 
-          //delete revision
+          // delete revision
           rev.destroy(callback);
         });
       });
@@ -667,17 +654,17 @@ module.exports = function(Obj) {
    * @param {boolean} [markUntouched] - if true isDirty is set to false
    */
   Obj.cleanUpContent = function(content, markUntouched) {
-    //check for optional param
+    // check for optional param
     if (markUntouched === undefined) {
       markUntouched = false;
     }
 
-    //clean up child elements
+    // clean up child elements
     let children = content.children.map(
       childContent => Obj.cleanUpContent(childContent, markUntouched)
     );
 
-    //cleaned structure
+    // cleaned structure
     let cleanContent = {
       'type': content.type,
       'properties': content.properties,
@@ -692,7 +679,7 @@ module.exports = function(Obj) {
    * Updates the latest revision of the object occupied by the current user
    */
   Obj.save = function(id, req, content, callback) {
-    var userId = req.accessToken.userId;//(!) this is an object not a string
+    var userId = req.accessToken.userId;// (!) this is an object not a string
 
     Obj.latest(id, function(err, revision) {
       if (err)
@@ -738,7 +725,7 @@ module.exports = function(Obj) {
   Obj.publish = function(id, req, content, callback) {
     var User = Obj.app.models.AppUser;
 
-    var userId = req.accessToken.userId;//(!) this is an object not a string
+    var userId = req.accessToken.userId;// (!) this is an object not a string
 
     User.findById(userId, function(err, user) {
       if (err) return callback(err);
@@ -757,7 +744,7 @@ module.exports = function(Obj) {
               return role.name;
             });
 
-            //update object status
+            // update object status
             // - if the user is truste, employee or administrator
             //   there is no need vor crowd voting
             if (roleNames.indexOf('trusted') !== -1) {
@@ -769,11 +756,11 @@ module.exports = function(Obj) {
             }
             obj.save();
 
-            //set revision state to published
+            // set revision state to published
             revision.published = true;
             revision.save();
 
-            //free user
+            // free user
             user.busy = false;
             user.save();
           });

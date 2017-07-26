@@ -7,7 +7,7 @@ module.exports = function(server) {
 
   server.use(router);
 
-  //home route which is welcoming the user
+  // home route which is welcoming the user
   router.get('/home', function(req, res, next) {
     res.render('home', {
       'title': 'Hallo',
@@ -20,7 +20,7 @@ module.exports = function(server) {
     });
   });
 
-  //show password reset form (loopback-example-user-management-code [MIT])
+  // show password reset form (loopback-example-user-management-code [MIT])
   router.get('/reset-password', function(req, res, next) {
     if (!req.accessToken) return res.sendStatus(401);
     res.render('password-reset', {
@@ -29,11 +29,11 @@ module.exports = function(server) {
     });
   });
 
-  //reset the user's pasword (loopback-example-user-management-code [MIT])
+  // reset the user's pasword (loopback-example-user-management-code [MIT])
   router.post('/reset-password', function(req, res, next) {
     if (!req.accessToken) return res.sendStatus(401);
 
-    //verify passwords match
+    // verify passwords match
     if (!req.body.password ||
         !req.body.confirmation ||
         req.body.password !== req.body.confirmation) {

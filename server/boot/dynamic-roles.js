@@ -2,10 +2,10 @@
 
 module.exports = function(server) {
   var Role = server.models.Role;
-  //var creatorModels = ['Comment'];
-  //var votingModels = ['Voting'];
+  // var creatorModels = ['Comment'];
+  // var votingModels = ['Voting'];
 
-  /*Role.registerResolver('$voter', function(role, context, cb) {
+  /* Role.registerResolver('$voter', function(role, context, cb) {
     console.log(context.modelName);
 
     // Q: Is the current request accessing a supported model?
@@ -24,5 +24,5 @@ module.exports = function(server) {
     //always accept
     return cb(null, true);
 
-  });*/
+  }); */
 };

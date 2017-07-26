@@ -9,7 +9,7 @@ module.exports = function(server) {
 
   var users = [];
 
-  //fake some user data
+  // fake some user data
   for (var i = 0; i < config.custom.seeding.users; i++) {
     users.push({
       username: faker.internet.userName(),
@@ -19,7 +19,7 @@ module.exports = function(server) {
     });
   }
 
-  //function which persists users to database
+  // function which persists users to database
   var seedUsers = function(users, callback) {
     if (users.length > 0) {
       var user = users.pop();
@@ -38,7 +38,7 @@ module.exports = function(server) {
     }
   };
 
-  //user seeding
+  // user seeding
   seedUsers(users, function(err) {
     if (err) throw err;
 

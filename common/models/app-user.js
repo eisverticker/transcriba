@@ -8,7 +8,7 @@ module.exports = function(user) {
   user.maximumRecentRevisionVotes = 20;
 
   user.afterRemote('confirm', function(context, result, next) {
-    //if the user is confirmed he will get the default role
+    // if the user is confirmed he will get the default role
     var role = config.custom.rbac.defaultRole;
 
     user.app.models.AppUser.setRole(context.req.query.uid, role, function(err) {
@@ -18,7 +18,7 @@ module.exports = function(user) {
     });
   });
 
-  //send verification email after registration
+  // send verification email after registration
   user.afterRemote('create', function(context, user, next) {
     console.log('> user.afterRemote triggered');
 
@@ -33,7 +33,7 @@ module.exports = function(user) {
       appName: config.custom.appName,
     };
 
-    //local host doesn't matter if people don't access the local server directly
+    // local host doesn't matter if people don't access the local server directly
     // so we have to take care that the verification link points to the external ip
     if (!config.custom.isLocalServerEnvironment) {
       options.host = config.custom.appUrl;
@@ -43,12 +43,12 @@ module.exports = function(user) {
     user.verify(options, function(err, response) {
       if (err) return next(err);
 
-      //console.log('> verification email sent:', response);
+      // console.log('> verification email sent:', response);
       return next();
     });
   });
 
-  //send password reset link when requested
+  // send password reset link when requested
   user.on('resetPasswordRequest', function(info) {
     var url = 'http://' + config.custom.appUrl + '/reset-password';
     var html = 'Click <a href="' + url + '?access_token=' +
@@ -65,7 +65,7 @@ module.exports = function(user) {
     });
   });
 
- /**
+  /**
   * Checks whether the user has the given role or not
   * @param {string} roleName;
   * @callback requestCallback
@@ -88,7 +88,7 @@ module.exports = function(user) {
     });
   };
 
- /**
+  /**
   * Checks whether the user is mature enough for voting or not
   * @callback requestCallback
   * @param {string} err;
@@ -103,7 +103,7 @@ module.exports = function(user) {
     });
   };
 
- /**
+  /**
   * Returns the number of recent votes from the current user
   * regarding a certain objectType
   * @param {string} votingModel;
@@ -130,7 +130,7 @@ module.exports = function(user) {
     });
   };
 
- /**
+  /**
   * The effect of this method depends on the server settings, but
   * it should give the user the specified role plus all roles below in the
   * hierachy (if rbac is hierachical) and delete all above
@@ -146,14 +146,14 @@ module.exports = function(user) {
     if (rolePosition == -1) return callback('role not found');
 
     if (config.custom.rbac.hierachical) {
-      //delete all roles which are higher than the given role
+      // delete all roles which are higher than the given role
       // and add all role which are lower than the given role
       //
       console.log('set role is being invoked - 2');
       user.app.models.AppUser.addRoles(id, roles.slice(0, rolePosition + 1),
         function(err) {
           if (err) return callback(err);
-          //hier weiter
+          // hier weiter
           user.app.models.AppUser.removeRoles(
             id,
             roles.slice(rolePosition + 1),
@@ -200,13 +200,13 @@ module.exports = function(user) {
   };
 
   user.remoteMethod(
-      'setRole',
+    'setRole',
     {
       description: 'Give the user this role',
       accessType: 'WRITE',
       accepts: [
-            {arg: 'id', type: 'string'},
-            {arg: 'rolename', type: 'string'},
+        {arg: 'id', type: 'string'},
+        {arg: 'rolename', type: 'string'},
       ],
       http: {path: '/roles', verb: 'post'},
     }
@@ -256,52 +256,52 @@ module.exports = function(user) {
       {
         where: {name: rolename},
       },
-          function(err, role) {
+      function(err, role) {
+        if (err) {
+          return callback(err);
+        }
+
+        if (!role) {
+          error = new Error('Role ' + rolename + ' not found.');
+          error['http_code'] = 404;
+          return callback(error);
+        }
+
+        RoleMapping.findOne(
+          {
+            where: {
+              principalType: RoleMapping.USER,
+              principalId: userId,
+              roleId: role.id,
+            },
+          },
+          function(err, roleMapping) {
             if (err) {
               return callback(err);
             }
 
-            if (!role) {
-              error = new Error('Role ' + rolename + ' not found.');
-              error['http_code'] = 404;
-              return callback(error);
+            if (roleMapping) {
+              return callback();
             }
-
-            RoleMapping.findOne(
+            console.log('role is being added');
+            role.principals.create(
               {
-                where: {
-                  principalType: RoleMapping.USER,
-                  principalId: userId,
-                  roleId: role.id,
-                },
+                principalType: RoleMapping.USER,
+                principalId: userId,
               },
-                  function(err, roleMapping) {
-                    if (err) {
-                      return callback(err);
-                    }
-
-                    if (roleMapping) {
-                      return callback();
-                    }
-                    console.log('role is being added');
-                    role.principals.create(
-                      {
-                        principalType: RoleMapping.USER,
-                        principalId: userId,
-                      },
-                          callback
-                      );
-                  }
-              );
+              callback
+            );
           }
-      );
+        );
+      }
+    );
   };
   user.remoteMethod(
-      'addRole',
+    'addRole',
     {
       accepts: [
-          {arg: 'id', type: 'string'},
-          {arg: 'rolename', type: 'string'},
+        {arg: 'id', type: 'string'},
+        {arg: 'rolename', type: 'string'},
       ],
       http: {path: '/:id/roles', verb: 'put'},
     }
@@ -324,48 +324,48 @@ module.exports = function(user) {
       {
         where: {name: rolename},
       },
-          function(err, roleObj) {
+      function(err, roleObj) {
+        if (err) {
+          return callback(err);
+        }
+
+        if (!roleObj) {
+          // error = new Error('Role ' + rolename + ' not found.');
+          // error['http_code'] = 404;
+          // return callback(error);
+          return callback(null);
+        }
+        RoleMapping.findOne(
+          {
+            where: {
+              principalType: RoleMapping.USER,
+              principalId: userId,
+              roleId: roleObj.id,
+            },
+          },
+          function(err, roleMapping) {
             if (err) {
               return callback(err);
             }
 
-            if (!roleObj) {
-                  //error = new Error('Role ' + rolename + ' not found.');
-                  //error['http_code'] = 404;
-                  //return callback(error);
-              return callback(null);
+            if (!roleMapping) {
+              return callback();
             }
-            RoleMapping.findOne(
-              {
-                where: {
-                  principalType: RoleMapping.USER,
-                  principalId: userId,
-                  roleId: roleObj.id,
-                },
-              },
-                  function(err, roleMapping) {
-                    if (err) {
-                      return callback(err);
-                    }
 
-                    if (!roleMapping) {
-                      return callback();
-                    }
-
-                    roleMapping.destroy(callback);
-                  }
-              );
+            roleMapping.destroy(callback);
           }
-      );
+        );
+      }
+    );
   };
   user.remoteMethod(
-      'removeRole',
+    'removeRole',
     {
       description: 'Remove User to the named role',
       accessType: 'WRITE',
       accepts: [
-            {arg: 'id', type: 'string'},
-            {arg: 'rolename', type: 'string'},
+        {arg: 'id', type: 'string'},
+        {arg: 'rolename', type: 'string'},
       ],
       http: {path: '/:id/roles/:rolename', verb: 'delete'},
     }
@@ -449,7 +449,7 @@ module.exports = function(user) {
     }
   );
 
-  //prevent users from logging in as 'bot'
+  // prevent users from logging in as 'bot'
   user.beforeRemote('login', function(context, instance, next) {
     var reqBody = context.req.body;
 

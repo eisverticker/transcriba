@@ -12,14 +12,14 @@ module.exports = function(Voting) {
         Voting.app.models.AppUser.findById(rev.ownerId, function(err, user) {
           if (err) return callback(err);
 
-          //delete version
+          // delete version
           rev.destroy();
 
-          //update object state
+          // update object state
           obj.status = 'free';
           obj.save();
 
-        //update score
+          // update score
           user.score = user.score - 2;
           user.save();
 
@@ -40,15 +40,15 @@ module.exports = function(Voting) {
         Voting.app.models.AppUser.findById(rev.ownerId, function(err, user) {
           if (err) return callback(err);
 
-          //update revision state
+          // update revision state
           rev.approved = true;
           rev.save();
 
-          //update object state
+          // update object state
           obj.status = 'free';
           obj.save();
 
-        //update score
+          // update score
           user.score = user.score + 10;
           user.save();
 
@@ -65,8 +65,8 @@ module.exports = function(Voting) {
         callback(null, null);
       },
       onVote: function(model, context, instance, callback) {
-         //delete voting target under certain conditions
-         /*model.outcome(instance.objectType, instance.objectId,
+        // delete voting target under certain conditions
+        /* model.outcome(instance.objectType, instance.objectId,
          function(err, counts){
            if(err) return callback(err);
 
@@ -79,7 +79,7 @@ module.exports = function(Voting) {
                callback(null);
              });
            }
-         });*/
+         }); */
         callback(null);
       },
     },
@@ -216,7 +216,7 @@ module.exports = function(Voting) {
    * Notice: there is also a remote hook which works hand in hand with vote()
    */
   Voting.vote = function(data, callback) {
-    //alter voting if the user already voted in the past
+    // alter voting if the user already voted in the past
     Voting.findOne({
       'where': {
         objectType: data.objectType,
@@ -228,7 +228,7 @@ module.exports = function(Voting) {
 
       if (voting) {
         voting.vote = data.vote;
-        //voting.createdAt = new Date();
+        // voting.createdAt = new Date();
         voting.save(callback);
       } else {
         Voting.create(data, callback);
@@ -246,7 +246,7 @@ module.exports = function(Voting) {
   Voting.beforeRemote('vote', function(context, unused, next) {
     var data = context.args.data;
 
-    //check if required fields were delivered
+    // check if required fields were delivered
     if (
       data.objectType === undefined ||
       data.objectId === undefined ||
@@ -255,17 +255,17 @@ module.exports = function(Voting) {
       return next(new Error('voting create method is missing some arguments'));
     }
 
-    //# Step 1
-    //Require user to be authorized
+    // # Step 1
+    // Require user to be authorized
     var userId = context.req.accessToken.userId;
     if (!userId) {
       return next(new Error('authorisation required'));
     }
-    data.userId = userId;//Set the related foreign key (userId)
+    data.userId = userId;// Set the related foreign key (userId)
     data.createdAt = new Date();
 
-    //# Step 2
-    //check whether model and voting are supported
+    // # Step 2
+    // check whether model and voting are supported
     if (
       votingModels[data.objectType] == undefined ||
       votingModels[data.objectType].candidates.indexOf(data.vote) == -1
@@ -273,7 +273,7 @@ module.exports = function(Voting) {
       return next('voting context is not supported');
     }
 
-    //some model specific validation
+    // some model specific validation
     votingModels[data.objectType].voteValidator(context, data,
       function(err, invalid) {
         if (err) return next(err);

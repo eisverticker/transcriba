@@ -7,13 +7,13 @@ module.exports = function(Discussion) {
    */
   Discussion.beforeRemote('prototype.__create__comments',
     function(context, comment, next) {
-      //Require user to be authorized
+      // Require user to be authorized
       var userId = context.req.accessToken.userId;
       if (!userId) {
         throw 'authorisation required';
       }
 
-      //Set the related foreign key (userId)
+      // Set the related foreign key (userId)
       context.args.data.appUserId = userId;
       context.args.data.createdAt = new Date();
 

@@ -1,6 +1,6 @@
 'use strict';
 
-//var faker = require('faker');
+// var faker = require('faker');
 var config = require('../config.json');
 
 module.exports = function(server) {
@@ -28,11 +28,11 @@ module.exports = function(server) {
     }
   };
 
-  //info-page dummies
+  // info-page dummies
   var pageNames = config.custom.dummies.pages;
   createDummyPages(pageNames, function(err) {
     if (err) throw err;
 
-    //console.log("dummy pages created");
+    // console.log("dummy pages created");
   });
 };

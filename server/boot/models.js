@@ -18,7 +18,7 @@ module.exports = function(server) {
 
   var roles = config.custom.rbac.roles.slice();
 
-  //ensure that administrator is the last role
+  // ensure that administrator is the last role
   if (roles.indexOf('administrator') === -1) {
     roles.push('administrator');
   }
@@ -38,7 +38,7 @@ module.exports = function(server) {
   var createRoles = function(roles, options, previousRoleObj, callback) {
     if (roles.length > 0) {
       var roleName = roles.shift();
-      //console.log(roleName);
+      // console.log(roleName);
 
       Role.findOrCreate({
         where: {
@@ -50,7 +50,7 @@ module.exports = function(server) {
         if (err) callback(err);
 
         if (previousRoleObj !== null && options.isHierachical) {
-          //console.log(previousRoleObj.principals);
+          // console.log(previousRoleObj.principals);
           var  principal = {
             principalType: RoleMapping.ROLE,
             principalId: roleObj.id,
@@ -130,5 +130,5 @@ module.exports = function(server) {
         });
       }
     });
-  });//end of create roles call
+  });// end of create roles call
 };

@@ -15,7 +15,7 @@ app.engine('ejs', engine);
 // configure view handler
 app.set('view engine', 'ejs');
 app.set('views', path.join(__dirname, 'views'));
-app.locals.appName = config.custom.appName;//make appName available in templates
+app.locals.appName = config.custom.appName;// make appName available in templates
 
 // configure body parser
 app.use(bodyParser.urlencoded({extended: true}));
