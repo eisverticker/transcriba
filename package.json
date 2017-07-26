@@ -2,6 +2,9 @@
   "name": "transcriba-platform",
   "version": "1.0.0",
   "main": "server/server.js",
+  "engines": {
+    "node": ">=4"
+  },  
   "scripts": {
     "postinstall": "node postinstall.js",
     "start": "node .",
