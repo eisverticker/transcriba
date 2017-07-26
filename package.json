@@ -4,13 +4,14 @@
   "main": "server/server.js",
   "engines": {
     "node": ">=4"
-  },  
+  },
   "scripts": {
     "postinstall": "node postinstall.js",
     "start": "node .",
     "lint": "eslint .",
     "lintfix": "eslint . --fix",
-    "posttest": "npm run lint && nsp check"
+    "posttest": "npm run lint && nsp check",
+    "test": "jasmine"
   },
   "dependencies": {
     "bcrypt": "^0.8.7",
@@ -38,6 +39,7 @@
     "eslint": "^2.13.1",
     "eslint-config-loopback": "^4.0.0",
     "faker": "^3.1.0",
+    "jasmine": "^2.6.0",
     "nsp": "^2.6.2"
   },
   "repository": {
