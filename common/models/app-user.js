@@ -1,6 +1,6 @@
 'use strict';
 
-var config = require('../../server/config.json');
+var transcribaConfig = require('../../server/transcriba-config.json');
 var path = require('path');
 
 module.exports = function(user) {
@@ -9,7 +9,7 @@ module.exports = function(user) {
 
   user.afterRemote('confirm', function(context, result, next) {
     // if the user is confirmed he will get the default role
-    var role = config.custom.rbac.defaultRole;
+    var role = transcribaConfig.rbac.defaultRole;
 
     user.app.models.AppUser.setRole(context.req.query.uid, role, function(err) {
       if (err) return next(err);
@@ -25,18 +25,18 @@ module.exports = function(user) {
     var options = {
       type: 'email',
       to: user.email,
-      from: config.custom.senderMail,
+      from: transcribaConfig.senderMail,
       subject: 'Bestätigung der Registrierung',
       template: path.resolve(__dirname, '../../server/views/verify.ejs'),
       user: user,
       redirect: '/verified',
-      appName: config.custom.appName,
+      appName: transcribaConfig.appName,
     };
 
     // local host doesn't matter if people don't access the local server directly
     // so we have to take care that the verification link points to the external ip
-    if (!config.custom.isLocalServerEnvironment) {
-      options.host = config.custom.appUrl;
+    if (!transcribaConfig.isLocalServerEnvironment) {
+      options.host = transcribaConfig.appUrl;
       options.port = '80';
     }
 
@@ -50,13 +50,13 @@ module.exports = function(user) {
 
   // send password reset link when requested
   user.on('resetPasswordRequest', function(info) {
-    var url = 'http://' + config.custom.appUrl + '/reset-password';
+    var url = 'http://' + transcribaConfig.appUrl + '/reset-password';
     var html = 'Click <a href="' + url + '?access_token=' +
         info.accessToken.id + '">here</a> to reset your password';
 
     user.app.models.Email.send({
       to: info.email,
-      from: config.custom.senderMail,
+      from: transcribaConfig.senderMail,
       subject: 'Password reset',
       html: html,
     }, function(err) {
@@ -140,12 +140,12 @@ module.exports = function(user) {
   * @param {string} err
   */
   user.setRole = function(id, rolename, callback) {
-    var roles = config.custom.rbac.roles;
+    var roles = transcribaConfig.rbac.roles;
     var rolePosition = roles.indexOf(rolename);
     console.log('set role is being invoked - 1');
     if (rolePosition == -1) return callback('role not found');
 
-    if (config.custom.rbac.hierachical) {
+    if (transcribaConfig.rbac.hierachical) {
       // delete all roles which are higher than the given role
       // and add all role which are lower than the given role
       //
@@ -456,11 +456,11 @@ module.exports = function(user) {
     if (
       (
         reqBody.username !== undefined &&
-        reqBody.username == config.custom.bot.username
+        reqBody.username == transcribaConfig.bot.username
       ) ||
       (
         reqBody.email !== undefined &&
-        reqBody.email == config.custom.bot.email
+        reqBody.email == transcribaConfig.bot.email
       )
     ) {
       next(new Error('cannot login as bot'));

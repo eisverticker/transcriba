@@ -1,0 +1,34 @@
+{
+  "appName": "Transcriba",
+  "isLocalServerEnvironment": true,
+  "appUrl": "",
+  "seedDatabase": false,
+  "createDummyData": true,
+  "seeding": {
+    "users": 5
+  },
+  "dummies": {
+    "pages": ["impressum", "intro", "feedback"]
+  },
+  "admin": {
+    "username": "Administrator",
+    "password": "+rA4uswatHaP",
+    "email": "foobar3@no-spam.ws"
+  },
+  "bot": {
+    "username": "bot",
+    "password": "DCAtupe4TaC59bg",
+    "email": "bot@no-spam.ws"
+  },
+  "senderMail": "foo@bar.com",
+  "rbac": {
+    "hierachical": true,
+    "defaultRole": "registered",
+    "roles": [
+      "registered",
+      "trusted",
+      "employee",
+      "administrator"
+    ]
+  }
+}

@@ -5,7 +5,7 @@ var boot = require('loopback-boot');
 var path = require('path');
 var bodyParser = require('body-parser');
 var engine = require('ejs-mate');
-var config = require('./config.json');
+var transcribaConfig = require('./transcriba-config.json');
 
 var app = module.exports = loopback();
 
@@ -15,7 +15,7 @@ app.engine('ejs', engine);
 // configure view handler
 app.set('view engine', 'ejs');
 app.set('views', path.join(__dirname, 'views'));
-app.locals.appName = config.custom.appName;// make appName available in templates
+app.locals.appName = transcribaConfig.appName;// make appName available in templates
 
 // configure body parser
 app.use(bodyParser.urlencoded({extended: true}));

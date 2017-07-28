@@ -3,12 +3,18 @@
 var c7 = require('configurator7');
 var configJson = require('./install_files/server/config.json');
 var datasourcesJson = require('./install_files/server/datasources.json');
+var transcribaConfigJson = require('./install_files/server/transcriba-config.json');
 
 var configFiles = {
 
     "config": {
         data: configJson,
         targetFile: "./server/config.json",
+    },
+
+    "transcribaConfig": {
+        data: transcribaConfigJson,
+        targetFile: "./server/transcriba-config.json",
     },
 
     "datasources": {
@@ -23,8 +29,8 @@ var questions = [{
     type: "email",
     required: true,
     target: {
-        file: "config",
-        position: 'custom.senderMail'
+        file: "transcribaConfig",
+        position: 'senderMail'
     }
 }, {
     title: "Please provide your email host for sending mails.",
@@ -72,24 +78,24 @@ var questions = [{
     type: "default",
     required: true,
     target: {
-        file: "config",
-        position: "custom.admin.username"
+        file: "transcribaConfig",
+        position: "admin.username"
     }
 }, {
     title: "Administrator email:",
     type: "email",
     required: true,
     target: {
-        file: "config",
-        position: "custom.admin.email"
+        file: "transcribaConfig",
+        position: "admin.email"
     }
 }, {
     title: "Administrator password:",
     type: "password",
     required: true,
     target: {
-        file: "config",
-        position: "custom.admin.password"
+        file: "transcribaConfig",
+        position: "admin.password"
     }
 }];
 

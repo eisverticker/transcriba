@@ -9,9 +9,7 @@ var fs = require('fs');
 var fsExtra = require('fs-extra');
 var sharp = require('sharp');
 var sizeOf = require('image-size');
-var config = require('../../server/config.json');
-
-// var ejs = require('ejs'),
+var transcribaConfig = require('../../server/transcriba-config.json');
 
 module.exports = function(Obj) {
   Obj.tileSize = 256;
@@ -73,7 +71,7 @@ module.exports = function(Obj) {
 
     User.findOne({
       where: {
-        'username': config.custom.bot.username,
+        'username': transcribaConfig.bot.username,
       },
     }, function(err, user) {
       if (err) return callback(err);

@@ -1,10 +1,10 @@
 'use strict';
 
 // var faker = require('faker');
-var config = require('../config.json');
+var transcribaConfig = require('../transcriba-config.json');
 
 module.exports = function(server) {
-  if (!config.custom.createDummyData) return;
+  if (!transcribaConfig.createDummyData) return;
   var InfoPage = server.models.InfoPage;
 
   var createDummyPages = function(pageNames, callback) {
@@ -29,7 +29,7 @@ module.exports = function(server) {
   };
 
   // info-page dummies
-  var pageNames = config.custom.dummies.pages;
+  var pageNames = transcribaConfig.dummies.pages;
   createDummyPages(pageNames, function(err) {
     if (err) throw err;
 

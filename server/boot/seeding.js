@@ -1,16 +1,16 @@
 'use strict';
 
 var faker = require('faker');
-var config = require('../config.json');
+var transcribaConfig = require('../transcriba-config.json');
 
 module.exports = function(server) {
-  if (!config.custom.seedDatabase) return;
+  if (!transcribaConfig.seedDatabase) return;
   var User = server.models.AppUser;
 
   var users = [];
 
   // fake some user data
-  for (var i = 0; i < config.custom.seeding.users; i++) {
+  for (var i = 0; i < transcribaConfig.seeding.users; i++) {
     users.push({
       username: faker.internet.userName(),
       email: faker.internet.email(),
@@ -27,7 +27,7 @@ module.exports = function(server) {
       User.create(user, function(err, u) {
         if (err) return callback(err);
 
-        User.setRole(u.id, config.custom.rbac.defaultRole, function(err) {
+        User.setRole(u.id, transcribaConfig.rbac.defaultRole, function(err) {
           if (err) return callback(err);
 
           seedUsers(users, callback);

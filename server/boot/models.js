@@ -1,11 +1,11 @@
 'use strict';
 
-var config = require('../config.json');
+var transcribaConfig = require('../transcriba-config.json');
 
 /**
  * This script has several things to do:
  * -----------------------------------------
- * First create all roles from server/config.json (custom.rbac.roles)
+ * First create all roles from server/transcriba-config.json (rbac.roles)
  *  with the given options
  * Then create a new user and add administrator the last given role to him
  * (it's recommended to call the last role administrator because acls are
@@ -16,7 +16,7 @@ module.exports = function(server) {
   var Role = server.models.Role;
   var RoleMapping = server.models.RoleMapping;
 
-  var roles = config.custom.rbac.roles.slice();
+  var roles = transcribaConfig.rbac.roles.slice();
 
   // ensure that administrator is the last role
   if (roles.indexOf('administrator') === -1) {
@@ -29,7 +29,7 @@ module.exports = function(server) {
   //
 
   var options = {
-    isHierachical: config.custom.rbac.hierachical,
+    isHierachical: transcribaConfig.rbac.hierachical,
   };
 
   /**
@@ -85,7 +85,7 @@ module.exports = function(server) {
 
     User.findOne({
       where: {
-        'username': config.custom.admin.username,
+        'username': transcribaConfig.admin.username,
       },
     }, function(err, user) {
       if (err) throw err;
@@ -95,9 +95,9 @@ module.exports = function(server) {
          * Create Administrator
          */
         User.create({
-          username: config.custom.admin.username,
-          email: config.custom.admin.email,
-          password: config.custom.admin.password,
+          username: transcribaConfig.admin.username,
+          email: transcribaConfig.admin.email,
+          password: transcribaConfig.admin.password,
           emailVerified: true,
         }, function(err, user) {
           if (err) throw err;
@@ -115,18 +115,22 @@ module.exports = function(server) {
          * Create Bot user
          */
         User.create({
-          username: config.custom.bot.username,
-          email: config.custom.bot.email,
-          password: config.custom.bot.password,
+          username: transcribaConfig.bot.username,
+          email: transcribaConfig.bot.email,
+          password: transcribaConfig.bot.password,
           emailVerified: true,
         }, function(err, user) {
           if (err) throw err;
 
-          User.setRole(user.id, config.custom.rbac.defaultRole, function(err) {
-            if (err) throw err;
+          User.setRole(
+            user.id,
+            transcribaConfig.rbac.defaultRole,
+            function(err) {
+              if (err) throw err;
 
-            console.log('Bot ' + user.username + ' was successfully created');
-          });
+              console.log('Bot ' + user.username + ' was successfully created');
+            }
+          );
         });
       }
     });
