@@ -19,4 +19,5 @@ node_modules
 npm-debug.log
 server/config.json
 server/datasources.json
+server/transcriba-config.json
 imports/*/
