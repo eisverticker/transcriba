@@ -1,9 +1,8 @@
 'use strict';
 
-var request = require('request');
-var download = require('download');
-
-var pd = require('pretty-data2').pd;
+const request = require('request');
+const download = require('download');
+const teiBuilder = require('../libs/tei-builder.js');
 
 var fs = require('fs');
 var fsExtra = require('fs-extra');
@@ -743,7 +742,7 @@ module.exports = function(Obj) {
             });
 
             // update object status
-            // - if the user is truste, employee or administrator
+            // - if the user is trusted, employee or administrator
             //   there is no need vor crowd voting
             if (roleNames.indexOf('trusted') !== -1) {
               obj.status = 'free';
@@ -844,15 +843,11 @@ module.exports = function(Obj) {
       Obj.stable(id, function(err, revision) {
         if (err) return callback(err);
 
-        Obj.app.render('tei', {
-          'title': obj.title,
-          'sourceName': sourceName,
-          'content': revision.content,
-        }, function(err, xml) {
-          if (err) return callback(err);
+        let content = revision.content;
+        let title = obj.title;
+        let xmlString = teiBuilder.objectToXml(content, title, sourceName);
 
-          callback(null, pd.xmlmin(xml), 'text/xml');
-        });
+        callback(null, xmlString, 'text/xml');
       });
     });
   };

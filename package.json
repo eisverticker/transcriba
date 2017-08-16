@@ -1,5 +1,5 @@
 {
-  "name": "transcriba-platform",
+  "name": "transcriba",
   "version": "1.0.0",
   "main": "server/server.js",
   "engines": {
@@ -29,11 +29,11 @@
     "loopback-component-explorer": "^4.0.0",
     "loopback-connector-mongodb": "1.17.0",
     "marked": "^0.3.6",
-    "pretty-data2": "^0.40.1",
     "request": "^2.76.0",
     "serve-favicon": "^2.0.1",
     "sharp": "^0.16.2",
-    "strong-error-handler": "^1.1.1"
+    "strong-error-handler": "^1.1.1",
+    "xmlbuilder": "^9.0.4"
   },
   "devDependencies": {
     "eslint": "^4.3.0",
