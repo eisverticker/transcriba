@@ -36,8 +36,8 @@
     "roles": {
       "type": "hasMany",
       "model": "Role",
-      "foreignKey": "principalId",
-      "through": "RoleMapping"
+      "through": "RoleMapping",
+      "polymorphic": "principal"
     },
     "comments": {
       "type": "hasMany",

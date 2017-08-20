@@ -142,14 +142,13 @@ module.exports = function(user) {
   user.setRole = function(id, rolename, callback) {
     var roles = transcribaConfig.rbac.roles;
     var rolePosition = roles.indexOf(rolename);
-    console.log('set role is being invoked - 1');
+
     if (rolePosition == -1) return callback('role not found');
 
     if (transcribaConfig.rbac.hierachical) {
       // delete all roles which are higher than the given role
       // and add all role which are lower than the given role
       //
-      console.log('set role is being invoked - 2');
       user.app.models.AppUser.addRoles(id, roles.slice(0, rolePosition + 1),
         function(err) {
           if (err) return callback(err);
@@ -247,54 +246,54 @@ module.exports = function(user) {
    */
   user.addRole = function(id, rolename, callback) {
     var Role = user.app.models.Role;
+    var User = user.app.models.AppUser;
     var RoleMapping = user.app.models.RoleMapping;
 
     var error;
     var userId = id;
 
-    Role.findOne(
-      {
-        where: {name: rolename},
-      },
-      function(err, role) {
-        if (err) {
-          return callback(err);
-        }
+    User.findById(userId, function(err, userObject) {
+      if (err) callback(err);
 
-        if (!role) {
-          error = new Error('Role ' + rolename + ' not found.');
-          error['http_code'] = 404;
-          return callback(error);
-        }
+      Role.findOne(
+        {
+          where: {name: rolename},
+        },
+        function(err, role) {
+          if (err) {
+            return callback(err);
+          }
 
-        RoleMapping.findOne(
-          {
-            where: {
-              principalType: RoleMapping.USER,
-              principalId: userId,
-              roleId: role.id,
-            },
-          },
-          function(err, roleMapping) {
-            if (err) {
-              return callback(err);
-            }
+          if (!role) {
+            error = new Error('Role ' + rolename + ' not found.');
+            error['http_code'] = 404;
+            return callback(error);
+          }
 
-            if (roleMapping) {
-              return callback();
-            }
-            console.log('role is being added');
-            role.principals.create(
-              {
+          RoleMapping.findOne(
+            {
+              where: {
                 principalType: RoleMapping.USER,
                 principalId: userId,
+                roleId: role.id,
               },
-              callback
-            );
-          }
-        );
-      }
-    );
+            },
+            function(err, roleMapping) {
+              if (err) {
+                return callback(err);
+              }
+
+              // role does already exist
+              if (roleMapping) {
+                return callback();
+              }
+
+              userObject.roles.add(role, callback);
+            }
+          );
+        }
+      );
+    });
   };
   user.remoteMethod(
     'addRole',
@@ -349,7 +348,7 @@ module.exports = function(user) {
             }
 
             if (!roleMapping) {
-              return callback();
+              return callback(null);
             }
 
             roleMapping.destroy(callback);
@@ -372,9 +371,18 @@ module.exports = function(user) {
   );
 
   user.score = function(req, callback) {
-    user.findById(req.accessToken.userId, function(err, u) {
+    if (!req.accessToken) callback('bad request');
+    var userId = req.accessToken.userId;
+
+    user.findById(userId, function(err, usr) {
       if (err) return callback(err);
-      callback(null, u.score);
+      if (!usr) {
+        let error = new Error('User ' + userId + ' not found.');
+        error['http_code'] = 404;
+        return callback(error);
+      }
+
+      callback(null, usr.score);
     });
   };
 
