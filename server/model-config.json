@@ -22,7 +22,14 @@
   },
   "AccessToken": {
     "dataSource": "mongo",
-    "public": false
+    "public": false,
+    "relations": {
+      "user": {
+        "type": "belongsTo",
+        "model": "AppUser",
+        "foreignKey": "userId"
+      }
+    }
   },
   "ACL": {
     "dataSource": "mongo",

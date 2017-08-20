@@ -46,7 +46,6 @@
     },
     "comment": {
       "type": "belongsTo",
-      "model": "Comment",
       "polymorphic": {
         "foreignKey": "objectId",
         "discriminator": "objectType"
@@ -54,7 +53,6 @@
     },
     "revision": {
       "type": "belongsTo",
-      "model": "Revision",
       "polymorphic": {
         "foreignKey": "objectId",
         "discriminator": "objectType"

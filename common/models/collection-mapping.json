@@ -32,7 +32,6 @@
     },
     "transcribaObject": {
       "type": "belongsTo",
-      "model": "TranscribaObject",
       "polymorphic": {
         "foreignKey": "itemId",
         "discriminator": "itemType"
