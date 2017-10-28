@@ -31,4 +31,7 @@ module.exports = function(server) {
   //     invert: true,
   //   }
   // );
+
+  // Set the default principal type from USER to the custom type AppUser
+  // RoleMapping.USER = 'AppUser';
 };

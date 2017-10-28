@@ -3,7 +3,9 @@
     "loopback#favicon": {}
   },
   "initial": {
-    "compression": {},
+    "compression": {
+      "enable": false
+    },
     "cors": {
       "params": {
         "origin": true,
@@ -47,7 +49,7 @@
   "final:after": {
     "strong-error-handler": {
       "params": {
-        "debug": false,
+        "debug": true,
         "log": true
       }
     }

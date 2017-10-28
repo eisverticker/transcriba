@@ -288,7 +288,19 @@ module.exports = function(user) {
                 return callback();
               }
 
-              userObject.roles.add(role, callback);
+              //
+              // simple version: does not work at the moment
+              //
+              // userObject.roles.add(role, callback);
+
+              // Classic version with USER principal type
+              role.principals.create(
+                {
+                  principalType: RoleMapping.USER,
+                  principalId: userId,
+                },
+                callback
+              );
             }
           );
         }
