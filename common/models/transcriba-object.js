@@ -3,12 +3,16 @@
 const request = require('request');
 const download = require('download');
 const teiBuilder = require('../libs/tei-builder.js');
+const Promise = require('bluebird');
 
 var fs = require('fs');
 var fsExtra = require('fs-extra');
 var sharp = require('sharp');
 var sizeOf = require('image-size');
 var transcribaConfig = require('../../server/transcriba-config.json');
+
+// Promisify by Bluerbird
+Promise.promisifyAll(sharp);
 
 module.exports = function(Obj) {
   Obj.tileSize = 256;
@@ -18,48 +22,51 @@ module.exports = function(Obj) {
    * being used by the transcriba application
    */
   Obj.generateImages = function(data, id, callback) {
-    var completedTaskCounter = 0;
-    var numOfTasks = 4;
 
-    var completeTask = function() {
-      completedTaskCounter++;
+    const scaleData = [
+      {
+        outputFile: '/overview.jpg',
+        width: undefined,
+        height: 512,
+      },
+      {
+        outputFile: '/small.jpg',
+        width: undefined,
+        height: 128,
+      },
+      {
+        outputFile: '/thumbnail.jpg',
+        width: 200,
+        height: 200,
+      },
+    ];
 
-      if (completedTaskCounter == numOfTasks) {
-        callback(null);
+    const saveOriginal = sharp(data)
+      .toFile('imports/' + id + '/raw.jpg');
+
+    const generateScaledImages = Promise.map(scaleData,
+      (item) => {
+        return sharp(data).resize(item.width, item.height)
+          .toFile('imports/' + id + item.outputFile);
       }
-    };
+    );
 
-    sharp(data)
-      .toFile('imports/' + id + '/raw.jpg', function(err) {
-        if (err) return callback(err);
-        completeTask();
-      });
-
-    sharp(data).resize(undefined, 512)
-      .toFile('imports/' + id + '/overview.jpg',
-        function(err) {
-          if (err) return callback(err);
-          completeTask();
-        }
-      );
-
-    sharp(data).resize(undefined, 128)
-      .toFile('imports/' + id + '/thumbnail.jpg',
-        function(err) {
-          if (err) return callback(err);
-          completeTask();
-        }
-      );
-
-    sharp(data)
+    const generateTiles = sharp(data)
       .tile({
         size: Obj.tileSize,
         layout: 'google',
       })
-      .toFile('imports/' + id + '/tiled.dzi', function(err) {
-        if (err) return callback(err);
-        completeTask();
-      });
+      .toFile('imports/' + id + '/tiled');
+
+    // Sync all
+    Promise.all([
+      saveOriginal,
+      generateScaledImages,
+      generateTiles,
+    ]).then(
+      () => callback(null),
+      (err) => callback(err)
+    );
   };
 
   /**
