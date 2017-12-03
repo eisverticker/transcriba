@@ -4,8 +4,8 @@ var transcribaConfig = require('../../server/transcriba-config.json');
 var path = require('path');
 
 module.exports = function(user) {
-  user.minimumRevisionVotingScore = 30;
-  user.maximumRecentRevisionVotes = 20;
+  user.minimumRevisionVotingScore = transcribaConfig.game.votingRequirements.minimumScore;
+  user.maximumRecentRevisionVotes = transcribaConfig.game.votingRequirements.maximumVotesPerDay;
 
   user.afterRemote('confirm', function(context, result, next) {
     // if the user is confirmed he will get the default role
@@ -112,7 +112,7 @@ module.exports = function(user) {
   * @param {number} numOfVotes;
   */
   user.prototype.numOfRecentVotes = function(objectType, callback) {
-    var dateDistance = 1000 * 60 * 60 * 24;
+    var dateDistance = 1000 * 60 * 60 * 24; // 24 hours (represented in milliseconds)
 
     user.app.models.Voting.count({
       'userId': this.id,

@@ -8,7 +8,12 @@
     "users": 5
   },
   "dummies": {
-    "pages": ["impressum", "intro", "feedback", "project"]
+    "pages": [
+      "impressum",
+      "intro",
+      "feedback",
+      "project"
+    ]
   },
   "admin": {
     "username": "Administrator",
@@ -30,5 +35,11 @@
       "employee",
       "administrator"
     ]
+  },
+  "game": {
+    "votingRequirements": {
+      "minimumScore": 30,
+      "maximumVotesPerDay": 20
+    }
   }
 }
