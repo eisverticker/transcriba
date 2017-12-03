@@ -8,7 +8,7 @@
     "users": 5
   },
   "dummies": {
-    "pages": ["impressum", "intro", "feedback"]
+    "pages": ["impressum", "intro", "feedback", "project"]
   },
   "admin": {
     "username": "Administrator",
