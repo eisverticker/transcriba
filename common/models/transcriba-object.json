@@ -28,6 +28,25 @@
     },
     "occupiedAt": {
       "type": "date"
+    },
+    "isTagsGenerated": {
+      "type": "boolean",
+      "default": false
+    },
+    "userTags": {
+      "type": [
+        "object"
+      ]
+    },
+    "generatedTags": {
+      "type": [
+        "string"
+      ]
+    },
+    "publicTags": {
+      "type": [
+        "string"
+      ]
     }
   },
   "validations": [],
