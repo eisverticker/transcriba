@@ -469,6 +469,31 @@ module.exports = function(user) {
     }
   );
 
+  user.completeTutorial = function(req, callback) {
+    user.findById(req.accessToken.userId, function(err, u) {
+      if (err) return callback(err);
+
+      if (!u.completedTutorial) {
+        u.score = u.score + 15;
+        u.completedTutorial = true;
+        u.save(callback);
+      }
+    });
+  };
+
+  user.remoteMethod(
+    'completeTutorial',
+    {
+      description: 'Set the tutorial flag to true',
+      accepts: [
+        {arg: 'req', type: 'object', required: true, http: {source: 'req'}},
+      ],
+      returns: [],
+      http: {path: '/tutorial', verb: 'post'},
+      isStatic: true,
+    }
+  );
+
   // prevent users from logging in as 'bot'
   user.beforeRemote('login', function(context, instance, next) {
     var reqBody = context.req.body;

@@ -5,6 +5,7 @@
   "options": {
     "validateUpsert": true
   },
+  "hidden": ["userTags", "isTagsGenerated"],
   "properties": {
     "title": {
       "type": "string",
@@ -28,6 +29,10 @@
     },
     "occupiedAt": {
       "type": "date"
+    },
+    "stage": {
+      "type": "number",
+      "default": 0
     },
     "isTagsGenerated": {
       "type": "boolean",

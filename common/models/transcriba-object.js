@@ -22,7 +22,6 @@ module.exports = function(Obj) {
    * being used by the transcriba application
    */
   Obj.generateImages = function(data, id, callback) {
-
     const scaleData = [
       {
         outputFile: '/overview.jpg',

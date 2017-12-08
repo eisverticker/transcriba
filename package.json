@@ -11,7 +11,8 @@
     "lint": "eslint .",
     "lintfix": "eslint . --fix",
     "posttest": "npm run lint && nsp check",
-    "test": "jasmine"
+    "test": "jasmine",
+    "fixmongo": "sudo mongod --repair; sudo service mongod start"
   },
   "dependencies": {
     "bcrypt": "^0.8.7",
@@ -31,6 +32,7 @@
     "loopback-component-explorer": "^4.0.0",
     "loopback-connector-mongodb": "^3.3.0",
     "marked": "^0.3.6",
+    "ner": "^0.2.2",
     "request": "^2.76.0",
     "serve-favicon": "^2.0.1",
     "sharp": "^0.18.0",
