@@ -83,6 +83,13 @@
       "principalId": "$authenticated",
       "permission": "ALLOW",
       "property": "busy"
+    },
+    {
+      "accessType": "EXECUTE",
+      "principalType": "ROLE",
+      "principalId": "$authenticated",
+      "permission": "ALLOW",
+      "property": "completeTutorial"
     }
   ],
   "methods": {}
