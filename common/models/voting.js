@@ -44,8 +44,12 @@ module.exports = function(Voting) {
           rev.approved = true;
           rev.save();
 
-          // update object state
+          // # update object state
           obj.status = 'free';
+          // ## Bring object to the next stage if necessary
+          if (obj.stage < 1) {
+            obj.stage = 1;
+          }
           obj.save();
 
           // update score

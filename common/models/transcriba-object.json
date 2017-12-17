@@ -5,7 +5,7 @@
   "options": {
     "validateUpsert": true
   },
-  "hidden": ["userTags", "isTagsGenerated"],
+  "hidden": ["userTags", "isTagsGenerated", "generatedTags"],
   "properties": {
     "title": {
       "type": "string",
@@ -51,7 +51,8 @@
     "publicTags": {
       "type": [
         "string"
-      ]
+      ],
+      "default": []
     }
   },
   "validations": [],

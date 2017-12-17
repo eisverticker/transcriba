@@ -15,6 +15,7 @@
     "fixmongo": "sudo mongod --repair; sudo service mongod start"
   },
   "dependencies": {
+    "array-unique": "^0.3.2",
     "bcrypt": "^0.8.7",
     "bluebird": "^3.5.1",
     "compression": "^1.0.3",
