@@ -6,11 +6,28 @@ module.exports = function(Source) {
 
     var sourceName = source.title;
 
+    console.log("source was added, now add a collection");
+
+    source.collection.create({
+      'name': sourceName,
+      'description': 'Automatically generated collection \
+      of objects which were imported from ' + sourceName,
+      'public': true,
+      'locked': true,
+    }).then(
+      (collection) => {
+        source.save();
+        console.log("collection was added");
+        next();
+      },
+      (err) => next(err)
+    );
+
     //
     // To automatically add a Collection with the same name as the source
     // you can write your lines here
     //
-    Collection.create({
+    /* Collection.create({
       'name': sourceName,
       'description': 'Automatically generated collection \
       of objects which were imported from ' + sourceName,
@@ -23,7 +40,7 @@ module.exports = function(Source) {
       source.save();
 
       next();
-    });
+    }); */
   });
 
   /**

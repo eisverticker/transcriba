@@ -5,7 +5,11 @@
   "options": {
     "validateUpsert": true
   },
-  "hidden": ["userTags", "isTagsGenerated", "generatedTags"],
+  "hidden": [
+    "userTags",
+    "isTagsGenerated",
+    "generatedTags"
+  ],
   "properties": {
     "title": {
       "type": "string",
@@ -71,6 +75,12 @@
       "type": "hasMany",
       "model": "Revision",
       "foreignKey": ""
+    },
+    "transcribaObjects": {
+      "type": "hasAndBelongsToMany",
+      "model": "Collection",
+      "through": "CollectionMapping",
+      "polymorphic": "collectionable"
     }
   },
   "acls": [

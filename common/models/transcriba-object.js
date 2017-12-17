@@ -186,17 +186,16 @@ module.exports = function(Obj) {
                               // automatically add to source related collection
                               source.collection(function(err, collection) {
                                 if (err) return callback(err);
-
+                                if (!collection) return callback('no collection found');
                                 /**
              * currently not available because of relation problem
              * see https://github.com/eisverticker/transcriba-backend/issues/1
              */
                                 // add transcribaObject to that collection
-                                /* collection.transcribaObjects.add(obj, function(err){
-              if(err) return callback(err);
-              callback(null, obj.id );
-            }) */
-                                callback(null, obj.id);
+                                collection.transcribaObjects.add(obj, function(err) {
+                                  if(err) return callback(err);
+                                  callback(null, obj.id);
+                                });
                               });
                             });
                           });
