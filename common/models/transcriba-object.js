@@ -4,6 +4,7 @@ const request = require('request');
 const download = require('download');
 const teiBuilder = require('../libs/tei-builder.js');
 const Promise = require('bluebird');
+const unique = require('array-unique');
 
 var fs = require('fs');
 var fsExtra = require('fs-extra');
@@ -16,6 +17,15 @@ Promise.promisifyAll(sharp);
 
 module.exports = function(Obj) {
   Obj.tileSize = 256;
+
+  Obj.prototype.publishGeneratedTags = function() {
+    this.publicTags = unique(this.publicTags.concat(this.generatedTags));
+    this.save();
+  };
+
+  Obj.prototype.generateNamedEntityTags = function() {
+    // TODO
+  };
 
   /**
    * Generates all image files like thumbnails, tiles, ... which are
@@ -757,6 +767,7 @@ module.exports = function(Obj) {
             } else {
               obj.status = 'voting';
             }
+
             obj.save();
 
             // set revision state to published

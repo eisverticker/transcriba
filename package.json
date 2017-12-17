@@ -16,6 +16,7 @@
   },
   "dependencies": {
     "bcrypt": "^3.0.0",
+    "array-unique": "^0.3.2",
     "bluebird": "^3.5.1",
     "compression": "^1.0.3",
     "configurator7": "^1.0.0",
