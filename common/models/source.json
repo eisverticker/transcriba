@@ -45,9 +45,9 @@
   "validations": [],
   "relations": {
     "collection": {
-      "type": "belongsTo",
+      "type": "hasOne",
       "model": "Collection",
-      "foreignKey": ""
+      "foreignKey": "collectionId"
     }
   },
   "acls": [

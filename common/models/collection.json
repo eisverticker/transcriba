@@ -31,12 +31,16 @@
     "transcribaObjects": {
       "type": "hasMany",
       "model": "TranscribaObject",
-      "polymorphic": {
-        "foreignKey": "itemId",
-        "discriminator": "itemType"
-      },
       "through": "CollectionMapping",
-      "keyThrough": "collectionId"
+      "invert": true,
+      "polymorphic": "collectionable"
+    },
+    "collections": {
+      "type": "hasMany",
+      "model": "Collection",
+      "through": "CollectionMapping",
+      "invert": true,
+      "polymorphic": "collectionable"
     }
   },
   "acls": [],
