@@ -5,9 +5,10 @@
  *  and attributes which may not available in the json files
  */
 module.exports = function(server) {
-  var User = server.models.AppUser;
-  var Role = server.models.Role;
-  var RoleMapping = server.models.RoleMapping;
+  // const User = server.models.AppUser;
+  // const Role = server.models.Role;
+  // const RoleMapping = server.models.RoleMapping;
+  // const ACL = server.models.ACL;
 
   //
   // Problem: mongodb-connectors >= 1.8 are roughly changing the way
@@ -16,7 +17,8 @@ module.exports = function(server) {
   // The following is a workaround and probably causes the 1.7 mechanism
   // to work again. See #3
   //
-  RoleMapping.settings.strictObjectIDCoercion = true;
+  // RoleMapping.settings.strictObjectIDCoercion = true;
+  // NOTE: This setting is now present in model-config.json
   //
 
   //
@@ -33,5 +35,7 @@ module.exports = function(server) {
   // );
 
   // Set the default principal type from USER to the custom type AppUser
-  // RoleMapping.USER = 'AppUser';
+  // const userModelName = 'AppUser';
+  // RoleMapping.USER = userModelName;
+  // ACL.USER = userModelName;
 };
