@@ -1,7 +1,7 @@
 {
   "name": "AppUser",
   "base": "User",
-  "idInjection": true,
+  "idInjection": false,
   "options": {
     "validateUpsert": true
   },
