@@ -9,6 +9,7 @@
     "strict": "error",
     "array-bracket-spacing": "warn",
     "arrow-spacing": "warn",
-    "camelcase": "error"
+    "camelcase": "error",
+    "comma-dangle": "off"
   }
 }
