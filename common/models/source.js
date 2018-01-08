@@ -1,13 +1,13 @@
 'use strict';
 
+const _ = require('lodash');
+
 module.exports = function(Source) {
   Source.afterRemote('replaceOrCreate', function(ctx, source, next) {
-    var Collection = Source.app.models.Collection;
-
-    var sourceName = source.title;
-
-    console.log("source was added, now add a collection");
-
+    const sourceName = source.title;
+    //
+    // automatically create a Collection with the same name as the source
+    //
     source.collection.create({
       'name': sourceName,
       'description': 'Automatically generated collection \
@@ -15,32 +15,12 @@ module.exports = function(Source) {
       'public': true,
       'locked': true,
     }).then(
-      (collection) => {
+      (_collection) => {
         source.save();
-        console.log("collection was added");
         next();
       },
       (err) => next(err)
     );
-
-    //
-    // To automatically add a Collection with the same name as the source
-    // you can write your lines here
-    //
-    /* Collection.create({
-      'name': sourceName,
-      'description': 'Automatically generated collection \
-      of objects which were imported from ' + sourceName,
-      'public': true,
-      'locked': true,
-    }, function(err, collection) {
-      if (err) return next(err);
-
-      source.collectionId = collection.id;
-      source.save();
-
-      next();
-    }); */
   });
 
   /**
@@ -51,20 +31,13 @@ module.exports = function(Source) {
    * @param {string} err
    * @param {object} sourceSummary
    */
-  Source.summary = function(id, callback) {
-    Source.findById(id, function(err, source) {
-      if (err) return callback(err);
-      if (!source) return callback('source not found');
-
-      callback(null,
-        {
-          'id': source.id,
-          'title': source.title,
-          'info_url': source.info_url,
-          'logo_url': source.logo_url,
-        }
-      );
-    });
+  Source.summary = function(id) {
+    return Source.findById(id).then(
+      (source) => {
+        if (!source) throw new Error('source not found');
+        return _.pick(source, ['id', 'title', 'info_url', 'logo_url']);
+      }
+    );
   };
 
   Source.remoteMethod(
@@ -79,6 +52,29 @@ module.exports = function(Source) {
         {arg: 'details', type: 'object', root: true},
       ],
       http: {path: '/:id/summary', verb: 'get'},
+      isStatic: true,
+    }
+  );
+
+  /**
+   * Load api meta data from a TranscribaJSON2 compatible server
+   * @param {string} apiUrl
+   */
+  Source.metadata = function(url) {
+    return Promise.reject(url);
+  };
+
+  Source.remoteMethod(
+    'metadata',
+    {
+      description: 'Imports TranscribaJSON metadata from url',
+      accepts: [
+        {arg: 'url', type: 'string', required: true},
+      ],
+      returns: [
+        {arg: 'metadata', type: 'object', root: true},
+      ],
+      http: {path: '/metadata', verb: 'get'},
       isStatic: true,
     }
   );

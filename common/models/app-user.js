@@ -1,17 +1,22 @@
 'use strict';
 
-var transcribaConfig = require('../../server/transcriba-config.json');
-var path = require('path');
+const Promise = require('bluebird');
+
+const transcribaConfig = require('../../server/transcriba-config.json');
+const Exceptions = require('../exceptions.js');
+const path = require('path');
 
 module.exports = function(user) {
-  user.minimumRevisionVotingScore = transcribaConfig.game.votingRequirements.minimumScore;
-  user.maximumRecentRevisionVotes = transcribaConfig.game.votingRequirements.maximumVotesPerDay;
+  const votingRequirements = transcribaConfig.game.votingRequirements;
+  user.minimumRevisionVotingScore = votingRequirements.minimumScore;
+  user.maximumRecentRevisionVotes = votingRequirements.maximumVotesPerDay;
 
   user.afterRemote('confirm', function(context, result, next) {
+    const User = user.app.models.AppUser;
     // if the user is confirmed he will get the default role
     var role = transcribaConfig.rbac.defaultRole;
 
-    user.app.models.AppUser.setRole(context.req.query.uid, role, function(err) {
+    User.setRole(context.req.query.uid, role, function(err) {
       if (err) return next(err);
 
       return next();
@@ -42,7 +47,6 @@ module.exports = function(user) {
 
     user.verify(options, function(err, response) {
       if (err) return next(err);
-
       // console.log('> verification email sent:', response);
       return next();
     });
@@ -50,11 +54,12 @@ module.exports = function(user) {
 
   // send password reset link when requested
   user.on('resetPasswordRequest', function(info) {
-    var url = 'http://' + transcribaConfig.appUrl + '/reset-password';
-    var html = 'Click <a href="' + url + '?access_token=' +
+    const Email = user.app.models.Email;
+    const url = 'http://' + transcribaConfig.appUrl + '/reset-password';
+    const html = 'Click <a href="' + url + '?access_token=' +
         info.accessToken.id + '">here</a> to reset your password';
 
-    user.app.models.Email.send({
+    Email.send({
       to: info.email,
       from: transcribaConfig.senderMail,
       subject: 'Password reset',
@@ -65,27 +70,21 @@ module.exports = function(user) {
     });
   });
 
+  // TODO: error handling
   /**
-  * Checks whether the user has the given role or not
+  * Checks whether the current user has the given role or not
   * @param {string} roleName;
   * @callback requestCallback
   * @param {string} err;
   * @param {boolean} hasRole;
   */
-  user.prototype.hasRole = function(roleName, callback) {
-    this.roles(function(err, roles) {
-      if (err) return callback(err);
-
-      var roleNames = roles.map(function(role) {
-        return role.name;
-      });
-
-      if (roleNames.indexOf(roleName) !== -1) {
-        return callback(null, true);
-      } else {
-        return callback(null, false);
-      }
-    });
+  user.prototype.hasRole = function(roleName) {
+    return user.loadRoles(this.id)
+      .then(
+        (roles) => roles.map(role => role.name)
+      ).then(
+        (roleNames) =>  roleNames.indexOf(roleName) !== -1
+      );
   };
 
   /**
@@ -94,13 +93,12 @@ module.exports = function(user) {
   * @param {string} err;
   * @param {boolean} isEligible;
   */
-  user.prototype.isEligibleVoter = function(callback) {
+  user.prototype.isEligibleVoter = function() {
     var me = this;
-    this.hasRole('trusted', function(err, isTrusted) {
-      if (err) callback(err);
-
-      callback(null, me.score >= user.minimumRevisionVotingScore || isTrusted);
-    });
+    return this.hasRole('trusted')
+      .then(
+        (isTrusted) => me.score >= user.minimumRevisionVotingScore || isTrusted
+      );
   };
 
   /**
@@ -111,10 +109,11 @@ module.exports = function(user) {
   * @param {string} err;
   * @param {number} numOfVotes;
   */
-  user.prototype.numOfRecentVotes = function(objectType, callback) {
-    var dateDistance = 1000 * 60 * 60 * 24; // 24 hours (represented in milliseconds)
+  user.prototype.numOfRecentVotes = function(objectType) {
+    const Voting = user.app.models.Voting;
+    const dateDistance = 1000 * 60 * 60 * 24; // 24 hours (represented in milliseconds)
 
-    user.app.models.Voting.count({
+    return Voting.count({
       'userId': this.id,
       'objectType': objectType,
       'createdAt': {
@@ -122,11 +121,7 @@ module.exports = function(user) {
           new Date(Date.now() - dateDistance),
           new Date(),
         ],
-      },
-    }, function(err, count) {
-      if (err) return callback(err);
-
-      callback(null, count);
+      }
     });
   };
 
@@ -139,63 +134,25 @@ module.exports = function(user) {
   * @callback requestCallback
   * @param {string} err
   */
-  user.setRole = function(id, rolename, callback) {
+  user.setRole = function(id, rolename) {
+    const User = user.app.models.AppUser;
     var roles = transcribaConfig.rbac.roles;
     var rolePosition = roles.indexOf(rolename);
 
-    if (rolePosition == -1) return callback('role not found');
+    if (rolePosition == -1) throw Exceptions.NotFound.Role;
 
     if (transcribaConfig.rbac.hierachical) {
       // delete all roles which are higher than the given role
       // and add all role which are lower than the given role
       //
-      user.app.models.AppUser.addRoles(id, roles.slice(0, rolePosition + 1),
-        function(err) {
-          if (err) return callback(err);
-          // hier weiter
-          user.app.models.AppUser.removeRoles(
-            id,
-            roles.slice(rolePosition + 1),
-            callback
-          );
-        }
+      return User.addRoles(id, roles.slice(0, rolePosition + 1)).then(
+        () => User.removeRoles(
+          id, roles.slice(rolePosition + 1)
+        )
       );
     } else {
-      user.app.models.AppUser.addRole(id, rolename, callback);
+      return User.addRole(id, rolename);
     }
-  };
-
-  /**
-   * Checks if the user is permitted to vote for the given revision
-   * @param {Revision} revision
-   * @callback requestCallback
-   * @param {string} err
-   * @param {boolean} isAllowed
-   * @param {object} permissionDetails
-   */
-  user.prototype.isAllowedToVoteForRevision = function(revision, callback) {
-    var me = this;
-
-    this.isEligibleVoter(function(err, eligible) {
-      if (err) return callback(err);
-
-      me.numOfRecentVotes('Revision', function(err, recentVotes) {
-        if (err) return callback(err);
-
-        return callback(null,
-          eligible &&
-          recentVotes < user.maximumRecentRevisionVotes &&
-          revision.ownerId.toJSON() != me.id.toJSON()
-          ,
-          {
-            'eligibleVoter': eligible,
-            'maximumVotesReached':
-              recentVotes >= user.maximumRecentRevisionVotes,
-            'isOwner': revision.ownerId.toJSON() == me.id.toJSON(),
-          }
-        );
-      });
-    });
   };
 
   user.remoteMethod(
@@ -211,31 +168,64 @@ module.exports = function(user) {
     }
   );
 
-  user.addRoles = function(id, rolenames, callback) {
-    if (rolenames.length > 0) {
-      var role = rolenames.pop();
-      user.app.models.AppUser.addRole(id, role, function(err) {
-        if (err) return callback(err);
+  /**
+   * Checks if the user is permitted to vote for the given revision
+   * @param {Revision} revision
+   * @callback requestCallback
+   * @param {string} err
+   * @param {boolean} isAllowed
+   * @param {object} permissionDetails
+   */
+  user.prototype.isAllowedToVoteForRevision = function(revision) {
+    var me = this;
 
-        user.app.models.AppUser.addRoles(id, rolenames, callback);
-      });
-    } else {
-      callback(null);
-    }
+    return Promise.join(
+      this.isEligibleVoter(),
+      this.numOfRecentVotes('Revision')
+    ).then(
+      (isEligible, recentVoteCount) => {
+        return { // promise returns a complex object consisting of two attributes
+          mayVote: // complex boolean expression
+            (
+              isEligible &&
+              recentVoteCount < user.maximumRecentRevisionVotes &&
+              revision.ownerId.toJSON() != me.id.toJSON()
+            ),
+          permissionDetails: {
+            'eligibleVoter': isEligible,
+            'maximumVotesReached':
+              recentVoteCount >= user.maximumRecentRevisionVotes,
+            'isOwner': revision.ownerId.toJSON() == me.id.toJSON(),
+          }
+        };
+      }
+    );
   };
 
-  user.removeRoles = function(id, rolenames, callback) {
-    if (rolenames.length > 0) {
-      var role = rolenames.pop();
+  /**
+    * Adds roles to a user by role names
+    * @param {string} id
+    * @param {array} rolenames
+    * @return {Promise} void
+    */
+  user.addRoles = function(id, rolenames) {
+    const User = user.app.models.AppUser;
+    return Promise.mapSeries(rolenames,
+      (nameOfRole) => User.addRole(id, nameOfRole)
+    );
+  };
 
-      user.app.models.AppUser.removeRole(id, role, function(err) {
-        if (err) return callback(err);
-
-        user.app.models.AppUser.removeRoles(id, rolenames, callback);
-      });
-    } else {
-      callback(null);
-    }
+  /**
+    * Remove roles from a user by role names
+    * @param {string} id
+    * @param {array} rolenames
+    * @return {Promise} void
+    */
+  user.removeRoles = function(id, rolenames) {
+    const User = user.app.models.AppUser;
+    return Promise.mapSeries(rolenames,
+      (nameOfRole) => User.removeRole(id, nameOfRole)
+    );
   };
 
   /**
@@ -244,68 +234,40 @@ module.exports = function(user) {
    * @param {string} roleName
    * @param {Function} callback
    */
-  user.addRole = function(id, rolename, callback) {
-    var Role = user.app.models.Role;
-    var User = user.app.models.AppUser;
-    var RoleMapping = user.app.models.RoleMapping;
+  user.addRole = function(id, rolename) {
+    const Role = user.app.models.Role;
+    const User = user.app.models.AppUser;
+    const RoleMapping = user.app.models.RoleMapping;
+    const userId = id;
 
-    var error;
-    var userId = id;
-
-    User.findById(userId, function(err, userObject) {
-      if (err) callback(err);
-
-      Role.findOne(
-        {
-          where: {name: rolename},
-        },
-        function(err, role) {
-          if (err) {
-            return callback(err);
+    return Promise.join(
+      User.findById(userId),
+      Role.findOne({where: {name: rolename}})
+    ).then(
+      (user, role) => {
+        if (!user || !role) throw Exceptions.NotFound.Default;
+        return RoleMapping.findOne({
+          where: {
+            principalType: RoleMapping.USER,
+            principalId: userId,
+            roleId: role.id,
           }
-
-          if (!role) {
-            error = new Error('Role ' + rolename + ' not found.');
-            error['http_code'] = 404;
-            return callback(error);
-          }
-
-          RoleMapping.findOne(
-            {
-              where: {
+        }).then(
+          (roleMapping) => {
+            if (roleMapping) {
+              // role is already associated to the user
+              return;
+            } else {
+              // assign role to user
+              return role.principals.create({
                 principalType: RoleMapping.USER,
-                principalId: userId,
-                roleId: role.id,
-              },
-            },
-            function(err, roleMapping) {
-              if (err) {
-                return callback(err);
-              }
-
-              // role does already exist
-              if (roleMapping) {
-                return callback();
-              }
-
-              //
-              // simple version: does not work at the moment
-              //
-              // userObject.roles.add(role, callback);
-
-              // Classic version with USER principal type
-              role.principals.create(
-                {
-                  principalType: RoleMapping.USER,
-                  principalId: userId,
-                },
-                callback
-              );
+                principalId: userId
+              });
             }
-          );
-        }
-      );
-    });
+          }
+        );
+      }
+    );
   };
   user.remoteMethod(
     'addRole',
@@ -325,49 +287,39 @@ module.exports = function(user) {
    * @param {string} roleName
    * @param {Function} callback
    */
-  user.removeRole = function(id, rolename, callback) {
-    var Role = user.app.models.Role;
-    var RoleMapping = user.app.models.RoleMapping;
+  user.removeRole = function(id, rolename) {
+    const Role = user.app.models.Role;
+    const RoleMapping = user.app.models.RoleMapping;
+    const userId = id;
 
-    var userId = id;
+    return Role.findOne({where: {name: rolename}})
+      .then(
+        (role) => {
+          // FIXME: previously here was no error thrown
+          //  so this breaking change should be documented
+          if (!role) throw Exceptions.NotFound.Role;
 
-    Role.findOne(
-      {
-        where: {name: rolename},
-      },
-      function(err, roleObj) {
-        if (err) {
-          return callback(err);
-        }
-
-        if (!roleObj) {
-          // error = new Error('Role ' + rolename + ' not found.');
-          // error['http_code'] = 404;
-          // return callback(error);
-          return callback(null);
-        }
-        RoleMapping.findOne(
-          {
-            where: {
-              principalType: RoleMapping.USER,
-              principalId: userId,
-              roleId: roleObj.id,
-            },
-          },
-          function(err, roleMapping) {
-            if (err) {
-              return callback(err);
+          return RoleMapping.findOne(
+            {
+              where: {
+                principalType: RoleMapping.USER,
+                principalId: userId,
+                roleId: role.id
+              }
             }
+          );
+        }
+      )
+      .then(
+        (roleMapping) => {
+          // can't remove role from user because
+          // role is not assigned to him
+          // NOTE: we ignore this and just return
+          if (!roleMapping) return;
 
-            if (!roleMapping) {
-              return callback(null);
-            }
-
-            roleMapping.destroy(callback);
-          }
-        );
-      }
-    );
+          return roleMapping.destroy();
+        }
+      );
   };
   user.remoteMethod(
     'removeRole',
@@ -382,20 +334,16 @@ module.exports = function(user) {
     }
   );
 
-  user.score = function(req, callback) {
-    if (!req.accessToken) callback('bad request');
-    var userId = req.accessToken.userId;
+  user.score = function(req) {
+    if (!req.accessToken) throw Exceptions.WrongInput;
+    const userId = req.accessToken.userId;
 
-    user.findById(userId, function(err, usr) {
-      if (err) return callback(err);
-      if (!usr) {
-        let error = new Error('User ' + userId + ' not found.');
-        error['http_code'] = 404;
-        return callback(error);
+    return user.findById(userId).then(
+      (resolvedUser) => {
+        if (!resolvedUser) throw Exceptions.NotFound.User;
+        return resolvedUser.score;
       }
-
-      callback(null, usr.score);
-    });
+    );
   };
 
   user.remoteMethod(
@@ -413,11 +361,16 @@ module.exports = function(user) {
     }
   );
 
-  user.busy = function(req, callback) {
-    user.findById(req.accessToken.userId, function(err, u) {
-      if (err) return callback(err);
-      callback(null, u.busy);
-    });
+  /**
+   * This method returns whether the current user is currently blocking
+   * a manuscript (busy) or not
+   */
+  user.busy = function(req) {
+    const userId = req.accessToken.userId;
+    return user.findById(userId)
+      .then(
+        (currentUser) => currentUser.busy
+      );
   };
 
   user.remoteMethod(
@@ -435,23 +388,24 @@ module.exports = function(user) {
     }
   );
 
-  user.leaderboard = function(maxNumOfUsers, callback) {
+  user.leaderboard = function(maxNumOfUsers) {
     if (maxNumOfUsers == undefined) {
       maxNumOfUsers = 10;
     }
 
-    user.find({
+    return user.find({
       limit: maxNumOfUsers,
-      order: 'score desc',
-    }, function(err, users) {
-      if (err) return callback(err);
-      callback(null, users.map(function(u) {
-        return {
-          'username': u.username,
-          'score': u.score,
-        };
-      }));
-    });
+      order: 'score desc'
+    }).then(
+      (users) => users.map(
+        (user) => {
+          return {
+            'username': user.username,
+            'score': user.score
+          };
+        }
+      )
+    );
   };
 
   user.remoteMethod(
@@ -469,16 +423,24 @@ module.exports = function(user) {
     }
   );
 
-  user.completeTutorial = function(req, callback) {
-    user.findById(req.accessToken.userId, function(err, u) {
-      if (err) return callback(err);
-
-      if (!u.completedTutorial) {
-        u.score = u.score + 15;
-        u.completedTutorial = true;
-        u.save(callback);
-      }
-    });
+  /**
+   * Sets the tutorial flag to true this indicates but does not imply
+   * that the user completed the getting started tutorial
+   * NOTE: users receive a onetime reward for this
+   */
+  user.completeTutorial = function(req) {
+    const userId = req.accessToken.userId;
+    return user.findById(userId)
+      .then(
+        (currentUser) => {
+          // ensure that users only receive the reward once
+          if (currentUser.completeTutorial) return;
+          // give reward and save flag
+          currentUser.score += 15;
+          currentUser.completedTutorial = true;
+          return currentUser.save();
+        }
+      );
   };
 
   user.remoteMethod(
@@ -496,7 +458,7 @@ module.exports = function(user) {
 
   // prevent users from logging in as 'bot'
   user.beforeRemote('login', function(context, instance, next) {
-    var reqBody = context.req.body;
+    const reqBody = context.req.body;
 
     if (
       (
@@ -508,19 +470,62 @@ module.exports = function(user) {
         reqBody.email == transcribaConfig.bot.email
       )
     ) {
-      next(new Error('cannot login as bot'));
+      next(Exceptions.Forbidden);
     } else {
       next();
     }
   });
 
-  user.numOfEligibleVoters = function(callback) {
-    user.count({
+  user.numOfEligibleVoters = function() {
+    return user.count({
       score: {
         gt: user.minimumRevisionVotingScore - 1,
       },
-    }, callback);
+    });
   };
+
+  // TODO: error handling
+  /**
+   * Loads roles of user with the given id
+   * NOTE: this is a replacement for the normal
+   * user.roles relation (workaround see #19)
+   */
+  user.loadRoles = function(id) {
+    const User = user.app.models.AppUser;
+    const RoleMapping = user.app.models.RoleMapping;
+    const Role = user.app.models.Role;
+
+    // first make sure the user with userId id exists
+    return User.findById(id).then(
+      (selectedUser) =>
+        // second find mappings user => roleId (array)
+        RoleMapping.find({
+          where: {
+            principalType: RoleMapping.USER,
+            principalId: selectedUser.id
+          }
+        })
+    ).then(
+      // third get role names to role ids
+      (roleMappings) =>
+        Promise.all(roleMappings.map(
+          (item) => Role.findById(item.roleId)
+        ))
+    );
+  };
+
+  user.remoteMethod(
+    'loadRoles',
+    {
+      accepts: [
+        {arg: 'id', type: 'string'}
+      ],
+      returns: [
+        {arg: 'roles', type: 'array', root: true},
+      ],
+      http: {path: '/:id/roles', verb: 'get'},
+    }
+  );
 
   user.disableRemoteMethodByName('__create__roles', false);
   user.disableRemoteMethodByName('__delete__roles', false);

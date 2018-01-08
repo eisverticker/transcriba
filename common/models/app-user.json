@@ -37,12 +37,6 @@
   },
   "validations": [],
   "relations": {
-    "roles": {
-      "type": "hasMany",
-      "model": "Role",
-      "through": "RoleMapping",
-      "polymorphic": "principal"
-    },
     "comments": {
       "type": "hasMany",
       "model": "Comment",
@@ -61,7 +55,7 @@
       "principalType": "ROLE",
       "principalId": "$owner",
       "permission": "ALLOW",
-      "property": "__get__roles"
+      "property": "loadRoles"
     },
     {
       "accessType": "EXECUTE",
