@@ -2,8 +2,8 @@
 /* eslint-disable no-undef, no-unused-vars */
 
 const app = require('../server/server.js');
-const request = require('request');
-const baseUrl = 'http://0.0.0.0:3001';
+const request = require('request-promise');
+const baseUrl = 'http://0.0.0.0:3002';
 const apiUrl = baseUrl + '/api';
 const transcribaConfig = require('../server/transcriba-config.json');
 // const baseUrl = app.get('url').replace(/\/$/, ''); // somehow does not work
