@@ -8,24 +8,35 @@ const Promise = require('bluebird');
 const unique = require('array-unique');
 const checkTypes = require('check-types');
 
-const fs = require('fs');
-const fsExtra = require('fs-extra');
+const fs = Promise.promisifyAll(require('fs'));
+const fsExtra = Promise.promisifyAll(require('fs-extra'));
 const sharp = require('sharp');
-const sizeOf = require('image-size');
+const sizeOf = Promise.promisify(require('image-size'));
 const transcribaConfig = require('../../server/transcriba-config.json');
 const Exceptions = require('../exceptions.js');
 
 const ImportEntity = require('../interfaces/import-entity.js');
 const ObjectMetadata = require('../interfaces/object-metadata.js');
 
-// Promisify by Bluerbird
-Promise.promisifyAll(sharp);
-Promise.promisifyAll(fsExtra);
-Promise.promisifyAll(fs);
-Promise.promisify(sizeOf);
-
 module.exports = function(Obj) {
-  Obj.tileSize = 256;
+  Obj.tileSize = transcribaConfig.viewer.tileSize;
+
+  /**
+   * Utility method which always returns the TranscribaObject with the given id
+   * if the promise resolves.
+   * This avoids null objects
+   * @param {string} id
+   * @return {Promise}
+   * @private
+   */
+  Obj.findByIdOrFail = function(id) {
+    return Obj.findById(id).then(
+      (trObject) => {
+        if (!trObject) throw Exceptions.NotFound.TranscribaObject;
+        return trObject;
+      }
+    );
+  };
 
   Obj.prototype.publishGeneratedTags = function() {
     this.publicTags = unique(this.publicTags.concat(this.generatedTags));
@@ -148,8 +159,7 @@ module.exports = function(Obj) {
   Obj.importImages = function(url, trObject) {
     return Promise.join(
       download(url),
-      fsExtra.ensureDir('imports/' + trObject.id)
-    ).then(
+      fsExtra.ensureDirAsync('imports/' + trObject.id),
       (imageBlob) => trObject.generateImages(imageBlob)
     );
   };
@@ -196,8 +206,7 @@ module.exports = function(Obj) {
 
     return Promise.join(
       Obj.isImported(externalId, sourceId),
-      Source.findOne({'where': {id: sourceId}})
-    ).then(
+      Source.findOne({'where': {id: sourceId}}),
       (isImported, source) => {
         if (isImported) throw Exceptions.Duplicate;
         trObjectSource = source;
@@ -230,11 +239,9 @@ module.exports = function(Obj) {
       () => Promise.join(
         trObject.discussion.create({title: 'transcriba'}),
         Obj.addToSourceCollection(trObject),
-        Obj.createFirstRevision(trObject)
+        Obj.createFirstRevision(trObject),
+        () => trObject.id
       )
-    ).then(
-      // finally return id of the successfully imported TranscribaObject
-      () => trObject.id
     );
   };
 
@@ -259,11 +266,16 @@ module.exports = function(Obj) {
    * @private
    */
   Obj.printImage = function(path, file, imageType) {
-    return fs.stat(path)
+    return fs.statAsync(path)
       .then(
         (stats) => {
           if (!stats.isDirectory()) throw Exceptions.NotFound.Directory;
-          return fs.readFile(path + file);
+          return fs.readFileAsync(path + file).catch(
+            (_err) => {
+              // convert error type
+              throw Exceptions.NotFound.Image;
+            }
+          );
         }
       )
       .then(
@@ -300,8 +312,8 @@ module.exports = function(Obj) {
   );
 
   Obj.thumbnail = function(id) {
-    var path = 'imports/' + id + '/';
-    var file = 'thumbnail.jpg';
+    const path = 'imports/' + id + '/';
+    const file = 'thumbnail.jpg';
 
     return Obj.printImage(path, file, 'jpeg');
   };
@@ -325,8 +337,8 @@ module.exports = function(Obj) {
   );
 
   Obj.overview = function(id) {
-    var path = 'imports/' + id + '/';
-    var file = 'overview.jpg';
+    const path = 'imports/' + id + '/';
+    const file = 'overview.jpg';
 
     return Obj.printImage(path, file, 'jpeg');
   };
@@ -353,7 +365,7 @@ module.exports = function(Obj) {
     const path = 'imports/' + id + '/';
     const file = 'raw.jpg';
 
-    return sizeOf(path + file, 'jpeg')
+    return sizeOf(path + file)
       .then(
         (dimensions) => [dimensions.width, dimensions.height]
       );
@@ -381,8 +393,8 @@ module.exports = function(Obj) {
   Obj.zoomsteps = function(id) {
     // integer logarithm (base 2)
     function intLog2(value) {
-      var max = 1;
-      var i = 0;
+      let max = 1;
+      let i = 0;
 
       while (value > max) {
         max = max * 2;
@@ -422,27 +434,10 @@ module.exports = function(Obj) {
   );
 
   /**
-   * Utility method which always returns the TranscribaObject with the given id
-   * if the promise resolves.
-   * This avoids null objects
-   * @param {string} id
-   * @return {Promise}
-   * @private
-   */
-  Obj.findByIdOrFail = function(id) {
-    return Obj.findById(id).then(
-      (trObject) => {
-        if (!trObject) throw Exceptions.NotFound.TranscribaObject;
-        return trObject.revisions;
-      }
-    );
-  };
-
-  /**
    * Load object chronic
    */
   Obj.chronic = function(id) {
-    Obj.findByIdOrFail(id).then(
+    return Obj.findByIdOrFail(id).then(
       // find object and map to object revisions property
       (trObject) => trObject.revisions
     ).then(
@@ -454,10 +449,16 @@ module.exports = function(Obj) {
     ).then(
       // eliminate unnecessary properties
       (revisions) => revisions.map(
-        (currentRevision) => _.pick(
-          currentRevision,
-          ['id', 'createdAt', 'username', 'published', 'approved']
-        )
+        (currentRevision) => {
+          // load owner to get username
+          const owner = currentRevision.owner();
+          let chronicItem = _.pick(
+            currentRevision,
+            ['id', 'createdAt', 'username', 'published', 'approved']
+          );
+          chronicItem.username = owner.username;
+          return chronicItem;
+        }
       )
     );
   };
@@ -554,8 +555,8 @@ module.exports = function(Obj) {
     if (req.accessToken == undefined) {
       // guests are not allowed to vote
       return Promise.resolve({
-        mayVote: false, // no voting permissions
-        permissionDetails: {
+        allowVote: false, // no voting permissions
+        details: {
           'eligibleVoter': false,
           'maximumVotesReached': false,
           'isOwner': false,
@@ -566,8 +567,7 @@ module.exports = function(Obj) {
     return Promise.join(
       // load user and TranscribaObject
       Obj.latest(id),
-      User.findById(userId)
-    ).then(
+      User.findById(userId),
       // check permissions
       (latest, user) => user.isAllowedToVoteForRevision(latest)
     );
@@ -595,6 +595,7 @@ module.exports = function(Obj) {
    * It is being used to set an object to occupied so that
    * a single user (the user who made the request) may
    * work on its own revision without conflicts
+   * TODO: Add transactional behaviour
    */
   Obj.occupy = function(id, req) {
     const User = Obj.app.models.AppUser;
@@ -604,8 +605,7 @@ module.exports = function(Obj) {
     return Promise.join(
       User.findById(userId),
       Obj.findByIdOrFail(trObjectId),
-      Obj.stable(trObjectId)
-    ).then(
+      Obj.stable(trObjectId),
       (user, trObject, stableRevision) => {
         // check trObject and user state
         if (!user) throw Exceptions.NotFound.User;
@@ -620,7 +620,21 @@ module.exports = function(Obj) {
           content: Obj.cleanUpContent(stableRevision.content, true),
           published: false,
           approved: false
-        });
+        }).then(
+          () => {
+            // update user and trObject state
+            user.busy = true;
+            trObject.status = 'occupied';
+            trObject.occupiedAt = new Date();
+            return Promise.all([
+              user.save(),
+              trObject.save()
+            ]);
+          }
+        ).then(
+          // finally return the new revision
+          () => stableRevision
+        );
       }
     );
   };
@@ -634,7 +648,7 @@ module.exports = function(Obj) {
         {arg: 'req', type: 'object', required: true, http: {source: 'req'}},
       ],
       returns: {
-        arg: 'id', type: 'object', root: true,
+        arg: 'trObject', type: 'object', root: true,
       },
       http: {path: '/:id/occupy', verb: 'post'},
     }
@@ -648,33 +662,26 @@ module.exports = function(Obj) {
   Obj.free = function(req) {
     const User = Obj.app.models.AppUser;
     const userId = req.accessToken.userId;
-
     return Promise.join(
       User.findById(userId),
-      Obj.occupied(req).spread()
-    ).then(
-      (user, _trObjectData, revision) => {
+      Obj.occupied(req),
+      (user, occupiedResult) => {
         if (!user) throw Exceptions.NotFound.User;
-        if (!revision) throw Exceptions.NotFound.Revision;
-
-        return revision.transcribaObject.then(
-          (trObject) => {
-            if (!trObject) throw Exceptions.NotFound.RelatedModel;
-
-            user.busy = true;
-            trObject.status = 'free';
-            return Promise.all(
-              user.save(),
-              trObject.save(),
-              revision.destroy()
-            );
-          }
-        );
+        const revision = occupiedResult[1];
+        const trObject = revision.transcribaObject();
+        if (!trObject) throw Exceptions.NotFound.RelatedModel;
+        trObject.status = 'free';
+        user.busy = false;
+        return Promise.all([
+          user.save(),
+          trObject.save(),
+          revision.destroy()
+        ]);
       }
     ).then(
       () => true
     ).catch(
-      () => false
+      (err) => false
     );
   };
 
@@ -734,25 +741,22 @@ module.exports = function(Obj) {
   /**
    * Updates the latest revision of the object occupied by the current user
    */
-  Obj.save = function(id, req, content) {
+  Obj.save = function(trObjectId, req, content) {
     const userId = req.accessToken.userId;// (!) this is an object not a string
 
-    return Obj.latest(id).then(
+    return Obj.latest(trObjectId).then(
       (revision, trObject) => {
         if (revision.ownerId.toJSON() != userId.toJSON())
           throw Exceptions.Occupied;
         if (!Obj.contentValidator(content))
           throw Exceptions.WrongFormat;
         if (revision.published)
-          throw new Exceptions.Replay;
+          throw Exceptions.Replay;
 
         revision.content = Obj.cleanUpContent(content);
         revision.save();
 
-        return {
-          'revision': revision,
-          'transcribaObject': trObject
-        };
+        return revision;
       }
     );
   };
@@ -782,7 +786,7 @@ module.exports = function(Obj) {
   /**
    * Updates the latest revision of the object occupied by the current user
    */
-  Obj.publish = function(id, req, content) {
+  Obj.publish = function(trObjectId, req, content) {
     const User = Obj.app.models.AppUser;
     const userId = req.accessToken.userId;// (!) this is an object not a string
     let isTrusted, user;
@@ -792,6 +796,7 @@ module.exports = function(Obj) {
       .then(
         // check if user has certain permissions (>= trusted)
         (selectedUser) => {
+          if (!selectedUser) throw Exceptions.NotFound.User;
           user = selectedUser;
           return selectedUser.hasRole('trusted');
         }
@@ -799,27 +804,29 @@ module.exports = function(Obj) {
         // create new object revision
         (trusted) => {
           isTrusted = trusted;
-          return Obj.save(id, req, content);
-        }
-      ).then(
-        (revision, trObject) => {
-          if (isTrusted) {
-            trObject.status = 'free';
-            revision.approved = true;
-            user.score += 10;
-          } else {
-            trObject.status = 'voting';
-          }
+          return Promise.join(
+            Obj.save(trObjectId, req, content),
+            Obj.findByIdOrFail(trObjectId),
+            (revision, trObject) => {
+              if (isTrusted) {
+                trObject.status = 'free';
+                revision.approved = true;
+                user.score += 10;
+              } else {
+                trObject.status = 'voting';
+              }
 
-          revision.published = true;
-          user.busy = false; // free user
+              revision.published = true;
+              user.busy = false; // free user
 
-          // make changes persistent
-          return Promise.all([
-            trObject.save(),
-            revision.save(),
-            user.save()
-          ]);
+              // make changes persistent
+              return Promise.all([
+                trObject.save(),
+                revision.save(),
+                user.save()
+              ]);
+            }
+          );
         }
       ).then(
         () => true
@@ -861,14 +868,15 @@ module.exports = function(Obj) {
     return Revision.findOne({
       where: {
         ownerId: userId,
-        published: false,
+        published: false
       },
       include: 'transcribaObject',
     }).then(
       (revision) => {
         if (!revision) throw Exceptions.NotFound.Revision;
+        console.log(revision);
         return [
-          revision.toJSON().transcribaObject,
+          revision.transcribaObject(),
           revision
         ];
       }
@@ -902,8 +910,7 @@ module.exports = function(Obj) {
           'source',
         ]
       }),
-      Obj.stable(trObjectId)
-    ).then(
+      Obj.stable(trObjectId),
       (trObject, stableRevision) => {
         if (!trObject) throw Exceptions.NotFound.TranscribaObject;
         if (!stableRevision) throw Exceptions.NotFound.Revision;
