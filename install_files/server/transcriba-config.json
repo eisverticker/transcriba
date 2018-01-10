@@ -42,5 +42,8 @@
       "minimumScore": 30,
       "maximumVotesPerDay": 20
     }
-  }
+  },
+  "viewer": {
+    "tileSize": 256
+  }  
 }

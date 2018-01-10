@@ -15,7 +15,8 @@ module.exports = {
     Role: new Error('Role was not found'),
     Directory: new Error('directory does not exist'),
     Revision: new Error('revision(s) not found'),
-    RelatedModel: new Error('cannot find related model')
+    RelatedModel: new Error('cannot find related model'),
+    Image: new Error('image file not found')
   },
   WrongFormat: new Error('Expected data format was different'),
   Duplicate: new Error('Cannot create a duplicate model'),

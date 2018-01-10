@@ -181,17 +181,16 @@ module.exports = function(user) {
 
     return Promise.join(
       this.isEligibleVoter(),
-      this.numOfRecentVotes('Revision')
-    ).then(
+      this.numOfRecentVotes('Revision'),
       (isEligible, recentVoteCount) => {
         return { // promise returns a complex object consisting of two attributes
-          mayVote: // complex boolean expression
+          allowVote: // complex boolean expression
             (
               isEligible &&
               recentVoteCount < user.maximumRecentRevisionVotes &&
               revision.ownerId.toJSON() != me.id.toJSON()
             ),
-          permissionDetails: {
+          details: {
             'eligibleVoter': isEligible,
             'maximumVotesReached':
               recentVoteCount >= user.maximumRecentRevisionVotes,
@@ -242,8 +241,7 @@ module.exports = function(user) {
 
     return Promise.join(
       User.findById(userId),
-      Role.findOne({where: {name: rolename}})
-    ).then(
+      Role.findOne({where: {name: rolename}}),
       (user, role) => {
         if (!user || !role) throw Exceptions.NotFound.Default;
         return RoleMapping.findOne({

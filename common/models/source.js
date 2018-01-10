@@ -1,6 +1,7 @@
 'use strict';
 
 const _ = require('lodash');
+const request = require('request-promise');
 
 module.exports = function(Source) {
   Source.afterRemote('replaceOrCreate', function(ctx, source, next) {
@@ -58,10 +59,24 @@ module.exports = function(Source) {
 
   /**
    * Load api meta data from a TranscribaJSON2 compatible server
+   * TODO: type checking?
    * @param {string} apiUrl
    */
   Source.metadata = function(url) {
-    return Promise.reject(url);
+    return request.get({
+      'url': url,
+      'json': true
+    }).then(
+      (body) => _.pick(body, [
+        'name',
+        'apiVersion',
+        'description',
+        'manuscriptUrl',
+        'browseUrl',
+        'linkUrl',
+        'capabilities'
+      ])
+    );
   };
 
   Source.remoteMethod(
