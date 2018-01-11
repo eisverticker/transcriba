@@ -44,5 +44,24 @@
     }
   },
   "acls": [],
-  "methods": {}
+  "methods": {
+    "prototype.progress": {
+      "accepts": [],
+      "returns": [
+        {
+          "arg": "progressPercentage",
+          "type": "number",
+          "root": true,
+          "description": "[0-100] where 100 means 100% complete"
+        }
+      ],
+      "description": "Current completion status of this collection",
+      "http": [
+        {
+          "path": "/progress",
+          "verb": "get"
+        }
+      ]
+    }
+  }
 }
