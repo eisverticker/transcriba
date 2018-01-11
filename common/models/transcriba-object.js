@@ -21,23 +21,6 @@ const ObjectMetadata = require('../interfaces/object-metadata.js');
 module.exports = function(TranscribaObject) {
   TranscribaObject.tileSize = transcribaConfig.viewer.tileSize;
 
-  /**
-   * Utility method which always returns the TranscribaObject with the given id
-   * if the promise resolves.
-   * This avoids null objects
-   * @param {string} id
-   * @return {Promise}
-   * @private
-   */
-  TranscribaObject.findByIdOrFail = function(id) {
-    return TranscribaObject.findById(id).then(
-      (trObject) => {
-        if (!trObject) throw Exceptions.NotFound.TranscribaObject;
-        return trObject;
-      }
-    );
-  };
-
   TranscribaObject.prototype.publishGeneratedTags = function() {
     this.publicTags = unique(this.publicTags.concat(this.generatedTags));
     this.save();
@@ -369,19 +352,14 @@ module.exports = function(TranscribaObject) {
   };
 
   /**
-   * Load object chronic
+   * Get TranscribaObject revision chronic
+   * @return {Promise<array>}
    */
-  TranscribaObject.chronic = function(id) {
-    return TranscribaObject.findByIdOrFail(id).then(
-      // find object and map to object revisions property
-      (trObject) => trObject.revisions
-    ).then(
-      // load all revisions in descending order
-      (revisions) => revisions({
-        order: 'createdAt desc',
-        include: 'owner'
-      })
-    ).then(
+  TranscribaObject.prototype.chronic = function() {
+    return this.revisions({
+      order: 'createdAt desc',
+      include: 'owner'
+    }).then(
       // eliminate unnecessary properties
       (revisions) => revisions.map(
         (currentRevision) => {
@@ -397,21 +375,6 @@ module.exports = function(TranscribaObject) {
       )
     );
   };
-
-  TranscribaObject.remoteMethod(
-    'chronic',
-    {
-      description: 'Load the revision chronic of the object',
-      accepts: [
-        {arg: 'id', type: 'string', required: true},
-      ],
-      returns: [
-        {arg: 'chronic', type: 'array', root: true},
-      ],
-      http: {path: '/:id/chronic', verb: 'get'},
-      isStatic: true,
-    }
-  );
 
   /**
    * Get latest revision of the TranscribaObject
@@ -451,32 +414,6 @@ module.exports = function(TranscribaObject) {
         if (revisions.length === 0) throw Exceptions.NotFound.Revision;
         return revisions[0];
       }
-    );
-  };
-
-  TranscribaObject.latestPermissions = function(id, req) {
-    const User = TranscribaObject.app.models.AppUser;
-    const userId = req.accessToken.userId;
-
-    // these lines were added to support requests from guests
-    if (req.accessToken == undefined) {
-      // guests are not allowed to vote
-      return Promise.resolve({
-        allowVote: false, // no voting permissions
-        details: {
-          'eligibleVoter': false,
-          'maximumVotesReached': false,
-          'isOwner': false,
-        }
-      });
-    }
-
-    return Promise.join(
-      // load user and TranscribaObject
-      TranscribaObject.latest(id),
-      User.findById(userId),
-      // check permissions
-      (latest, user) => user.isAllowedToVoteForRevision(latest)
     );
   };
 
@@ -535,7 +472,10 @@ module.exports = function(TranscribaObject) {
           createdAt: new Date(),
           ownerId: user.id,
           metadata: stableRevision.metadata,
-          content: TranscribaObject.cleanUpContent(stableRevision.content, true),
+          content: TranscribaObject.cleanUpContent(
+            stableRevision.content,
+            true
+          ),
           published: false,
           approved: false
         }).then(
@@ -719,78 +659,6 @@ module.exports = function(TranscribaObject) {
         () => false
       );
   };
-
-  /**
-   * Updates the latest revision of the object occupied by the current user
-   */
-  TranscribaObject.publish = function(trObjectId, req, content) {
-    const User = TranscribaObject.app.models.AppUser;
-    const userId = req.accessToken.userId;// (!) this is an object not a string
-    let isTrusted, user;
-
-    // get user and user role data
-    return User.findById(userId)
-      .then(
-        // check if user has certain permissions (>= trusted)
-        (selectedUser) => {
-          if (!selectedUser) throw Exceptions.NotFound.User;
-          user = selectedUser;
-          return selectedUser.hasRole('trusted');
-        }
-      ).then(
-        // create new object revision
-        (trusted) => {
-          isTrusted = trusted;
-          return Promise.join(
-            TranscribaObject.save(trObjectId, req, content),
-            TranscribaObject.findByIdOrFail(trObjectId),
-            (revision, trObject) => {
-              if (isTrusted) {
-                trObject.status = 'free';
-                revision.approved = true;
-                user.score += 10;
-              } else {
-                trObject.status = 'voting';
-              }
-
-              revision.published = true;
-              user.busy = false; // free user
-
-              // make changes persistent
-              return Promise.all([
-                trObject.save(),
-                revision.save(),
-                user.save()
-              ]);
-            }
-          );
-        }
-      ).then(
-        () => true
-      );
-  };
-
-  TranscribaObject.remoteMethod(
-    'publish',
-    {
-      description: 'Publish the content of the revision your are \
-      currently working on (Finishing the revision)',
-      accepts: [
-        {arg: 'id', type: 'string', required: true},
-        {arg: 'req', type: 'object', required: true, http: {source: 'req'}},
-        {
-          arg: 'content',
-          type: 'object',
-          required: true,
-          http: {source: 'body'},
-        },
-      ],
-      returns: {
-        arg: 'success', type: 'boolean', root: true,
-      },
-      http: {path: '/:id/publish', verb: 'post'},
-    }
-  );
 
   /**
    * Finds the object which is currently occupied by the user who

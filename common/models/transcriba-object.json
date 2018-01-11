@@ -546,6 +546,24 @@
           "verb": "post"
         }
       ]
+    },
+    "prototype.chronic": {
+      "accepts": [],
+      "returns": [
+        {
+          "arg": "chronic",
+          "type": "array",
+          "root": true,
+          "description": "array of revision chronic objects"
+        }
+      ],
+      "description": "Get TranscribaObject revision chronic",
+      "http": [
+        {
+          "path": "/chronic",
+          "verb": "get"
+        }
+      ]
     }
   }
 }
