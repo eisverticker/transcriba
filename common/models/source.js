@@ -25,37 +25,16 @@ module.exports = function(Source) {
   });
 
   /**
-   * Returns a few details of a given source
-   * (because some users don't have rights to access the full dataset)
-   * @param {string} id
-   * @callback requestCallback
-   * @param {string} err
-   * @param {object} sourceSummary
+   * Get public properties of a source
+   * @param {Function(Error, object)} callback
    */
-  Source.summary = function(id) {
-    return Source.findById(id).then(
-      (source) => {
-        if (!source) throw new Error('source not found');
-        return _.pick(source, ['id', 'title', 'info_url', 'logo_url']);
-      }
+
+  Source.prototype.summary = function() {
+    const source = this;
+    return Promise.resolve(
+      _.pick(source, ['id', 'title', 'info_url', 'logo_url'])
     );
   };
-
-  Source.remoteMethod(
-    'summary',
-    {
-      description: 'Returns some details for a given source, \
-      which are not hidden',
-      accepts: [
-        {arg: 'id', type: 'string', required: true},
-      ],
-      returns: [
-        {arg: 'details', type: 'object', root: true},
-      ],
-      http: {path: '/:id/summary', verb: 'get'},
-      isStatic: true,
-    }
-  );
 
   /**
    * Load api meta data from a TranscribaJSON2 compatible server

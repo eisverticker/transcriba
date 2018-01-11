@@ -126,7 +126,7 @@
       "principalType": "ROLE",
       "principalId": "$authenticated",
       "permission": "ALLOW",
-      "property": "save"
+      "property": "saveContent"
     },
     {
       "accessType": "EXECUTE",
@@ -206,5 +206,346 @@
       "property": "free"
     }
   ],
-  "methods": {}
+  "methods": {
+    "prototype.thumbnail": {
+      "accepts": [],
+      "returns": [
+        {
+          "arg": "image",
+          "type": "file",
+          "root": true,
+          "description": "Image data"
+        },
+        {
+          "arg": "contentType",
+          "type": "string",
+          "http": {
+            "target": "header",
+            "header": "Content-Type"
+          }
+        }
+      ],
+      "description": "Print thumbnail image",
+      "http": [
+        {
+          "path": "/thumbnail",
+          "verb": "get"
+        }
+      ]
+    },
+    "prototype.overview": {
+      "accepts": [],
+      "returns": [
+        {
+          "arg": "image",
+          "type": "file",
+          "root": true,
+          "description": "Image data"
+        },
+        {
+          "arg": "contentType",
+          "type": "string",
+          "http": {
+            "target": "header",
+            "header": "Content-Type"
+          }
+        }
+      ],
+      "description": "Print overview image",
+      "http": [
+        {
+          "path": "/overview",
+          "verb": "get"
+        }
+      ]
+    },
+    "prototype.dimensions": {
+      "accepts": [],
+      "returns": [
+        {
+          "arg": "width",
+          "type": "number",
+          "root": false,
+          "description": "width in pixels"
+        },
+        {
+          "arg": "height",
+          "type": "number",
+          "root": false,
+          "description": "height in pixels"
+        }
+      ],
+      "description": "Load dimensions of the original manuscript image",
+      "http": [
+        {
+          "path": "/dimensions",
+          "verb": "get"
+        }
+      ]
+    },
+    "prototype.zoomsteps": {
+      "accepts": [],
+      "returns": [
+        {
+          "arg": "steps",
+          "type": "number",
+          "root": true,
+          "description": "number image resolutions used by tile rendering"
+        }
+      ],
+      "description": "Number of zoomsteps for tiled rendering",
+      "http": [
+        {
+          "path": "/zoomsteps",
+          "verb": "get"
+        }
+      ]
+    },
+    "prototype.tiles": {
+      "accepts": [
+        {
+          "arg": "zoom",
+          "type": "number",
+          "required": true,
+          "description": "desired zoom step of the image",
+          "http": {
+            "source": "path"
+          }
+        },
+        {
+          "arg": "x",
+          "type": "number",
+          "required": true,
+          "description": "tile coordinate on x-axis",
+          "http": {
+            "source": "path"
+          }
+        },
+        {
+          "arg": "y",
+          "type": "number",
+          "required": true,
+          "description": "tile coordinate on y-axis",
+          "http": {
+            "source": "path"
+          }
+        }
+      ],
+      "returns": [
+        {
+          "arg": "image",
+          "type": "file",
+          "root": true,
+          "description": "Image data"
+        },
+        {
+          "arg": "contentType",
+          "type": "string",
+          "http": {
+            "target": "header",
+            "header": "Content-Type"
+          }
+        }
+      ],
+      "description": "Print a single tile of the image (tiled rendering)",
+      "http": [
+        {
+          "path": "/tiles/:zoom/:x/:y",
+          "verb": "get"
+        }
+      ]
+    },
+    "prototype.tei": {
+      "accepts": [],
+      "returns": [
+        {
+          "arg": "xmlData",
+          "type": "file",
+          "root": true,
+          "description": "XML string"
+        },
+        {
+          "arg": "contentType",
+          "type": "string",
+          "http": {
+            "target": "header",
+            "header": "Content-Type"
+          }
+        }
+      ],
+      "description": "Exports TranscribaObject data as TEI-XML",
+      "http": [
+        {
+          "path": "/tei",
+          "verb": "get"
+        }
+      ]
+    },
+    "prototype.stable": {
+      "accepts": [],
+      "returns": [
+        {
+          "arg": "revision",
+          "type": "object",
+          "root": true,
+          "description": "stable revision"
+        }
+      ],
+      "description": "Get latest stable revision of the TranscribaObject",
+      "http": [
+        {
+          "path": "/stable",
+          "verb": "get"
+        }
+      ]
+    },
+    "prototype.latest": {
+      "accepts": [],
+      "returns": [
+        {
+          "arg": "revision",
+          "type": "object",
+          "root": true,
+          "description": "latest revision"
+        }
+      ],
+      "description": "Get latest revision of the TranscribaObject",
+      "http": [
+        {
+          "path": "/latest",
+          "verb": "get"
+        }
+      ]
+    },
+    "prototype.latestPermissions": {
+      "accepts": [
+        {
+          "arg": "request",
+          "type": "object",
+          "required": true,
+          "description": "Express request object",
+          "http": {
+            "source": "req"
+          }
+        }
+      ],
+      "returns": [
+        {
+          "arg": "permissions",
+          "type": "object",
+          "root": true,
+          "description": "complex permission object (may the current user participate on votes?)"
+        }
+      ],
+      "description": "Get user permissions for the TranscribaObject",
+      "http": [
+        {
+          "path": "/latest/permissions",
+          "verb": "get"
+        }
+      ]
+    },
+    "prototype.occupy": {
+      "accepts": [
+        {
+          "arg": "request",
+          "type": "object",
+          "required": true,
+          "description": "Express request object",
+          "http": {
+            "source": "req"
+          }
+        }
+      ],
+      "returns": [
+        {
+          "arg": "revision",
+          "type": "object",
+          "root": true,
+          "description": "new revision created for the users working time"
+        }
+      ],
+      "description": "Assign the current user to this TranscribaObject",
+      "http": [
+        {
+          "path": "/occupy",
+          "verb": "post"
+        }
+      ]
+    },
+    "prototype.publish": {
+      "accepts": [
+        {
+          "arg": "request",
+          "type": "object",
+          "required": true,
+          "description": "Express request object",
+          "http": {
+            "source": "req"
+          }
+        },
+        {
+          "arg": "content",
+          "type": "object",
+          "required": true,
+          "description": "manuscript content",
+          "http": {
+            "source": "body"
+          }
+        }
+      ],
+      "returns": [
+        {
+          "arg": "success",
+          "type": "boolean",
+          "root": true,
+          "description": "indicates whether the content was published"
+        }
+      ],
+      "description": "Save and finish the work on the current revision",
+      "http": [
+        {
+          "path": "/publish",
+          "verb": "post"
+        }
+      ]
+    },
+    "prototype.saveContent": {
+      "accepts": [
+        {
+          "arg": "request",
+          "type": "object",
+          "required": true,
+          "description": "Express request object",
+          "http": {
+            "source": "req"
+          }
+        },
+        {
+          "arg": "content",
+          "type": "object",
+          "required": true,
+          "description": "manuscript content",
+          "http": {
+            "source": "body"
+          }
+        }
+      ],
+      "returns": [
+        {
+          "arg": "revision",
+          "type": "object",
+          "root": true,
+          "description": "latest revision"
+        }
+      ],
+      "description": "Save content to the current revision",
+      "http": [
+        {
+          "path": "/save",
+          "verb": "post"
+        }
+      ]
+    }
+  }
 }
