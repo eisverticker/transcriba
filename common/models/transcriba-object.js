@@ -18,9 +18,8 @@ const Exceptions = require('../exceptions.js');
 const ImportEntity = require('../interfaces/import-entity.js');
 const ObjectMetadata = require('../interfaces/object-metadata.js');
 
-module.exports = function(Obj) {
-  const TranscribaObject = Obj;
-  Obj.tileSize = transcribaConfig.viewer.tileSize;
+module.exports = function(TranscribaObject) {
+  TranscribaObject.tileSize = transcribaConfig.viewer.tileSize;
 
   /**
    * Utility method which always returns the TranscribaObject with the given id
@@ -30,8 +29,8 @@ module.exports = function(Obj) {
    * @return {Promise}
    * @private
    */
-  Obj.findByIdOrFail = function(id) {
-    return Obj.findById(id).then(
+  TranscribaObject.findByIdOrFail = function(id) {
+    return TranscribaObject.findById(id).then(
       (trObject) => {
         if (!trObject) throw Exceptions.NotFound.TranscribaObject;
         return trObject;
@@ -39,12 +38,12 @@ module.exports = function(Obj) {
     );
   };
 
-  Obj.prototype.publishGeneratedTags = function() {
+  TranscribaObject.prototype.publishGeneratedTags = function() {
     this.publicTags = unique(this.publicTags.concat(this.generatedTags));
     this.save();
   };
 
-  Obj.prototype.generateNamedEntityTags = function() {
+  TranscribaObject.prototype.generateNamedEntityTags = function() {
     // TODO
     Promise.resolve();
   };
@@ -53,7 +52,7 @@ module.exports = function(Obj) {
    * Generates all image files like thumbnails, tiles, ... which are
    * being used by the transcriba application
    */
-  Obj.prototype.generateImages = function(imageBlob) {
+  TranscribaObject.prototype.generateImages = function(imageBlob) {
     const scaleData = [
       {
         outputFile: '/overview.jpg',
@@ -84,7 +83,7 @@ module.exports = function(Obj) {
 
     const generateTiles = sharp(imageBlob)
       .tile({
-        size: Obj.tileSize,
+        size: TranscribaObject.tileSize,
         layout: 'google'
       })
       .toFile('imports/' + this.id + '/tiled');
@@ -100,8 +99,8 @@ module.exports = function(Obj) {
   /**
    * Creates the first empty revision made by bot user
    */
-  Obj.prototype.createFirstRevision = function() {
-    const User = Obj.app.models.AppUser;
+  TranscribaObject.prototype.createFirstRevision = function() {
+    const User = TranscribaObject.app.models.AppUser;
 
     return User.findOne({where: {'username': transcribaConfig.bot.usernam}})
       .then(
@@ -125,8 +124,8 @@ module.exports = function(Obj) {
    * Checks if the object from the given source is already in the database
    * @return {Promise}
    */
-  Obj.isImported = function(externalId, sourceId) {
-    return Obj.findOne({
+  TranscribaObject.isImported = function(externalId, sourceId) {
+    return TranscribaObject.findOne({
       where: {
         'externalID': externalId,
         'sourceId': sourceId,
@@ -136,7 +135,7 @@ module.exports = function(Obj) {
     );
   };
 
-  Obj.importMetadata = function(source, externalId) {
+  TranscribaObject.importMetadata = function(source, externalId) {
     return request(source.url.replace('{id}', externalId))
       .then(
         // create object from response body
@@ -157,7 +156,7 @@ module.exports = function(Obj) {
    * Downloads images from remote server, converts them and saves them
    * to our server
    */
-  Obj.importImages = function(url, trObject) {
+  TranscribaObject.importImages = function(url, trObject) {
     return Promise.join(
       download(url),
       fsExtra.ensureDirAsync('imports/' + trObject.id),
@@ -170,7 +169,7 @@ module.exports = function(Obj) {
    * this source should be stored. This function adds an object to the corresponding
    * collection
    */
-  Obj.prototype.addToSourceCollection = function() {
+  TranscribaObject.prototype.addToSourceCollection = function() {
     return this.source.collection().then(
       (collection) => {
         if (!collection) throw Exceptions.NotFound.Collection;
@@ -184,7 +183,7 @@ module.exports = function(Obj) {
    * Undo changes made during import
    * to recover the previous state
    */
-  Obj.abortImport = function(trObject) {
+  TranscribaObject.abortImport = function(trObject) {
     return trObject.destroy();
   };
 
@@ -194,11 +193,11 @@ module.exports = function(Obj) {
    * external Sources
    * NOTE: This method provides transactional behaviour to some extend
    */
-  Obj.import = function(importParameters) {
+  TranscribaObject.import = function(importParameters) {
     if (!checkTypes.like(importParameters, ImportEntity)) {
       throw Exceptions.WrongFormat;
     }
-    const Source = Obj.app.models.Source;
+    const Source = TranscribaObject.app.models.Source;
     const externalId = importParameters.externalId;
     const sourceId = importParameters.sourceId;
 
@@ -206,17 +205,17 @@ module.exports = function(Obj) {
     let trObject, trObjectSource, trMetadata;
 
     return Promise.join(
-      Obj.isImported(externalId, sourceId),
+      TranscribaObject.isImported(externalId, sourceId),
       Source.findOne({'where': {id: sourceId}}),
       (isImported, source) => {
         if (isImported) throw Exceptions.Duplicate;
         trObjectSource = source;
-        return Obj.importMetadata(source, externalId);
+        return TranscribaObject.importMetadata(source, externalId);
       }
     ).then(
       (metadata) => {
         trMetadata = metadata;
-        return  Obj.create({
+        return  TranscribaObject.create({
           'title': metadata.title,
           'sourceId': trObjectSource.id,
           'mainAuthor': metadata.mainAuthor,
@@ -228,11 +227,11 @@ module.exports = function(Obj) {
     ).then(
       (trObj) => {
         trObject = trObj;
-        return Obj.importImages(trMetadata.imageUrl, trObject);
+        return TranscribaObject.importImages(trMetadata.imageUrl, trObject);
       }
     ).catch(
       // Abort Transaction if critical image import failed
-      (error) => Obj.abortImport(trObject).then(
+      (error) => TranscribaObject.abortImport(trObject).then(
         () => Promise.reject(error)
       )
     ).then(
@@ -246,7 +245,7 @@ module.exports = function(Obj) {
     );
   };
 
-  Obj.remoteMethod(
+  TranscribaObject.remoteMethod(
     'import',
     {
       description:
@@ -266,7 +265,7 @@ module.exports = function(Obj) {
    * Image Output
    * @private
    */
-  Obj.printImage = function(path, file, imageType) {
+  TranscribaObject.printImage = function(path, file, imageType) {
     return fs.statAsync(path)
       .then(
         (stats) => {
@@ -296,7 +295,7 @@ module.exports = function(Obj) {
     const path = 'imports/' + this.id + '/tiled/';
     const file = zoom + '/' + y + '/' + x + '.jpg';
 
-    return Obj.printImage(path, file, 'jpeg');
+    return TranscribaObject.printImage(path, file, 'jpeg');
   };
 
   /**
@@ -307,7 +306,7 @@ module.exports = function(Obj) {
     const path = 'imports/' + this.id + '/';
     const file = 'thumbnail.jpg';
 
-    return Obj.printImage(path, file, 'jpeg');
+    return TranscribaObject.printImage(path, file, 'jpeg');
   };
 
   /**
@@ -318,7 +317,7 @@ module.exports = function(Obj) {
     const path = 'imports/' + this.id + '/';
     const file = 'overview.jpg';
 
-    return Obj.printImage(path, file, 'jpeg');
+    return TranscribaObject.printImage(path, file, 'jpeg');
   };
 
   /**
@@ -362,7 +361,7 @@ module.exports = function(Obj) {
         // we are only interessted in the greatest of both sides of the image
         greatestSideLength = Math.max(width, height);
         // now we need to know how many tiles are needed to cover the greatest side
-        numOfTiles = greatestSideLength / Obj.tileSize;
+        numOfTiles = greatestSideLength / TranscribaObject.tileSize;
         // log2 of the previous value + 1 is the number of zoom steps
         return intLog2(numOfTiles) + 1;
       }
@@ -372,8 +371,8 @@ module.exports = function(Obj) {
   /**
    * Load object chronic
    */
-  Obj.chronic = function(id) {
-    return Obj.findByIdOrFail(id).then(
+  TranscribaObject.chronic = function(id) {
+    return TranscribaObject.findByIdOrFail(id).then(
       // find object and map to object revisions property
       (trObject) => trObject.revisions
     ).then(
@@ -399,7 +398,7 @@ module.exports = function(Obj) {
     );
   };
 
-  Obj.remoteMethod(
+  TranscribaObject.remoteMethod(
     'chronic',
     {
       description: 'Load the revision chronic of the object',
@@ -455,8 +454,8 @@ module.exports = function(Obj) {
     );
   };
 
-  Obj.latestPermissions = function(id, req) {
-    const User = Obj.app.models.AppUser;
+  TranscribaObject.latestPermissions = function(id, req) {
+    const User = TranscribaObject.app.models.AppUser;
     const userId = req.accessToken.userId;
 
     // these lines were added to support requests from guests
@@ -474,7 +473,7 @@ module.exports = function(Obj) {
 
     return Promise.join(
       // load user and TranscribaObject
-      Obj.latest(id),
+      TranscribaObject.latest(id),
       User.findById(userId),
       // check permissions
       (latest, user) => user.isAllowedToVoteForRevision(latest)
@@ -488,7 +487,7 @@ module.exports = function(Obj) {
    */
 
   TranscribaObject.prototype.latestPermissions = function(request) {
-    const User = Obj.app.models.AppUser;
+    const User = TranscribaObject.app.models.AppUser;
     const userId = request.accessToken.userId;
 
     // these lines were added to support requests from guests
@@ -519,7 +518,7 @@ module.exports = function(Obj) {
    * @return {Promise<Revision>} new revision
    */
   TranscribaObject.prototype.occupy = function(request) {
-    const User = Obj.app.models.AppUser;
+    const User = TranscribaObject.app.models.AppUser;
     const userId = request.accessToken.userId;
 
     return Promise.join(
@@ -536,7 +535,7 @@ module.exports = function(Obj) {
           createdAt: new Date(),
           ownerId: user.id,
           metadata: stableRevision.metadata,
-          content: Obj.cleanUpContent(stableRevision.content, true),
+          content: TranscribaObject.cleanUpContent(stableRevision.content, true),
           published: false,
           approved: false
         }).then(
@@ -562,14 +561,14 @@ module.exports = function(Obj) {
    * Aborts the current transcription, frees
    * the object and deletes the revision
    */
-  Obj.free = function(request) {
-    const User = Obj.app.models.AppUser;
+  TranscribaObject.free = function(request) {
+    const User = TranscribaObject.app.models.AppUser;
     const userId = request.accessToken.userId;
     let trObject;
 
     return Promise.join(
       User.findById(userId),
-      Obj.occupied(request).then(
+      TranscribaObject.occupied(request).then(
         (trObj) => {
           trObject = trObj;
           return trObject.latest();
@@ -592,7 +591,7 @@ module.exports = function(Obj) {
     );
   };
 
-  Obj.remoteMethod(
+  TranscribaObject.remoteMethod(
     'free',
     {
       description: 'User wants to abort the transcription',
@@ -609,7 +608,7 @@ module.exports = function(Obj) {
   /**
    * Checks whether the content ist valid or not
    */
-  Obj.contentValidator = function(content) {
+  TranscribaObject.contentValidator = function(content) {
     return (
       content.type !== undefined &&
       content.children !== undefined &&
@@ -623,7 +622,7 @@ module.exports = function(Obj) {
    * @param {TeiElement} content
    * @param {boolean} [markUntouched] - if true isDirty is set to false
    */
-  Obj.cleanUpContent = function(content, markUntouched) {
+  TranscribaObject.cleanUpContent = function(content, markUntouched) {
     // check for optional param
     if (markUntouched === undefined) {
       markUntouched = false;
@@ -631,7 +630,7 @@ module.exports = function(Obj) {
 
     // clean up child elements
     let children = content.children.map(
-      childContent => Obj.cleanUpContent(childContent, markUntouched)
+      childContent => TranscribaObject.cleanUpContent(childContent, markUntouched)
     );
 
     // cleaned structure
@@ -658,12 +657,12 @@ module.exports = function(Obj) {
       (revision) => {
         if (revision.ownerId.toJSON() != userId.toJSON())
           throw Exceptions.Occupied;
-        if (!Obj.contentValidator(content))
+        if (!TranscribaObject.contentValidator(content))
           throw Exceptions.WrongFormat;
         if (revision.published)
           throw Exceptions.Replay;
 
-        revision.content = Obj.cleanUpContent(content);
+        revision.content = TranscribaObject.cleanUpContent(content);
         revision.save();
 
         return revision;
@@ -678,7 +677,7 @@ module.exports = function(Obj) {
    * @return {Promise<boolean>}
    */
   TranscribaObject.prototype.publish = function(request, content) {
-    const User = Obj.app.models.AppUser;
+    const User = TranscribaObject.app.models.AppUser;
     const userId = request.accessToken.userId;// (!) this is an object not a string
     let user;
 
@@ -724,8 +723,8 @@ module.exports = function(Obj) {
   /**
    * Updates the latest revision of the object occupied by the current user
    */
-  Obj.publish = function(trObjectId, req, content) {
-    const User = Obj.app.models.AppUser;
+  TranscribaObject.publish = function(trObjectId, req, content) {
+    const User = TranscribaObject.app.models.AppUser;
     const userId = req.accessToken.userId;// (!) this is an object not a string
     let isTrusted, user;
 
@@ -743,8 +742,8 @@ module.exports = function(Obj) {
         (trusted) => {
           isTrusted = trusted;
           return Promise.join(
-            Obj.save(trObjectId, req, content),
-            Obj.findByIdOrFail(trObjectId),
+            TranscribaObject.save(trObjectId, req, content),
+            TranscribaObject.findByIdOrFail(trObjectId),
             (revision, trObject) => {
               if (isTrusted) {
                 trObject.status = 'free';
@@ -771,7 +770,7 @@ module.exports = function(Obj) {
       );
   };
 
-  Obj.remoteMethod(
+  TranscribaObject.remoteMethod(
     'publish',
     {
       description: 'Publish the content of the revision your are \
@@ -799,8 +798,8 @@ module.exports = function(Obj) {
    * then the request fails. It is recommended to check whether
    * the user is busy or not before using this method
    */
-  Obj.occupied = function(request) {
-    const Revision = Obj.app.models.Revision;
+  TranscribaObject.occupied = function(request) {
+    const Revision = TranscribaObject.app.models.Revision;
     const userId = request.accessToken.userId;
 
     return Revision.findOne({
@@ -817,7 +816,7 @@ module.exports = function(Obj) {
     );
   };
 
-  Obj.remoteMethod(
+  TranscribaObject.remoteMethod(
     'occupied',
     {
       description: 'If the user occupied an transcribaObject, \
@@ -853,5 +852,5 @@ module.exports = function(Obj) {
     );
   };
 
-  Obj.disableRemoteMethodByName('create', true);
+  TranscribaObject.disableRemoteMethodByName('create', true);
 };
