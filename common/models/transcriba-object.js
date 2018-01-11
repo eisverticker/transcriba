@@ -20,6 +20,7 @@ const ObjectMetadata = require('../interfaces/object-metadata.js');
 
 module.exports = function(TranscribaObject) {
   TranscribaObject.tileSize = transcribaConfig.viewer.tileSize;
+  TranscribaObject.highestStage = 3;
 
   TranscribaObject.prototype.publishGeneratedTags = function() {
     this.publicTags = unique(this.publicTags.concat(this.generatedTags));
