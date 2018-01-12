@@ -10,7 +10,6 @@
     "verificationToken",
     "busy",
     "warnings",
-    "score",
     "disabled"
   ],
   "properties": {
