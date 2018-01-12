@@ -6,13 +6,13 @@ const transcribaConfig = require('../../server/transcriba-config.json');
 const Exceptions = require('../exceptions.js');
 const path = require('path');
 
-module.exports = function(user) {
+module.exports = function(AppUser) {
   const votingRequirements = transcribaConfig.game.votingRequirements;
-  user.minimumRevisionVotingScore = votingRequirements.minimumScore;
-  user.maximumRecentRevisionVotes = votingRequirements.maximumVotesPerDay;
+  AppUser.minimumRevisionVotingScore = votingRequirements.minimumScore;
+  AppUser.maximumRecentRevisionVotes = votingRequirements.maximumVotesPerDay;
 
-  user.afterRemote('confirm', function(context, result, next) {
-    const User = user.app.models.AppUser;
+  AppUser.afterRemote('confirm', function(context, result, next) {
+    const User = AppUser.app.models.AppUser;
     // if the user is confirmed he will get the default role
     var role = transcribaConfig.rbac.defaultRole;
 
@@ -24,16 +24,16 @@ module.exports = function(user) {
   });
 
   // send verification email after registration
-  user.afterRemote('create', function(context, user, next) {
-    console.log('> user.afterRemote triggered');
+  AppUser.afterRemote('create', function(context, createdUser) {
+    console.log('> AppUser.afterRemote triggered');
 
-    var options = {
+    const options = {
       type: 'email',
-      to: user.email,
+      to: createdUser.email,
       from: transcribaConfig.senderMail,
       subject: 'Bestätigung der Registrierung',
       template: path.resolve(__dirname, '../../server/views/verify.ejs'),
-      user: user,
+      user: createdUser,
       redirect: '/verified',
       appName: transcribaConfig.appName,
     };
@@ -45,16 +45,12 @@ module.exports = function(user) {
       options.port = '80';
     }
 
-    user.verify(options, function(err, response) {
-      if (err) return next(err);
-      // console.log('> verification email sent:', response);
-      return next();
-    });
+    return createdUser.verify(options);
   });
 
   // send password reset link when requested
-  user.on('resetPasswordRequest', function(info) {
-    const Email = user.app.models.Email;
+  AppUser.on('resetPasswordRequest', function(info) {
+    const Email = AppUser.app.models.Email;
     const url = 'http://' + transcribaConfig.appUrl + '/reset-password';
     const html = 'Click <a href="' + url + '?access_token=' +
         info.accessToken.id + '">here</a> to reset your password';
@@ -70,16 +66,16 @@ module.exports = function(user) {
     });
   });
 
-  // TODO: error handling
   /**
   * Checks whether the current user has the given role or not
+  * @todo: error handling
   * @param {string} roleName;
   * @callback requestCallback
   * @param {string} err;
   * @param {boolean} hasRole;
   */
-  user.prototype.hasRole = function(roleName) {
-    return user.loadRoles(this.id)
+  AppUser.prototype.hasRole = function(roleName) {
+    return AppUser.loadRoles(this.id)
       .then(
         (roles) => roles.map(role => role.name)
       ).then(
@@ -93,11 +89,12 @@ module.exports = function(user) {
   * @param {string} err;
   * @param {boolean} isEligible;
   */
-  user.prototype.isEligibleVoter = function() {
+  AppUser.prototype.isEligibleVoter = function() {
     var me = this;
     return this.hasRole('trusted')
       .then(
-        (isTrusted) => me.score >= user.minimumRevisionVotingScore || isTrusted
+        (isTrusted) =>
+          me.score >= AppUser.minimumRevisionVotingScore || isTrusted
       );
   };
 
@@ -109,8 +106,8 @@ module.exports = function(user) {
   * @param {string} err;
   * @param {number} numOfVotes;
   */
-  user.prototype.numOfRecentVotes = function(objectType) {
-    const Voting = user.app.models.Voting;
+  AppUser.prototype.numOfRecentVotes = function(objectType) {
+    const Voting = AppUser.app.models.Voting;
     const dateDistance = 1000 * 60 * 60 * 24; // 24 hours (represented in milliseconds)
 
     return Voting.count({
@@ -134,8 +131,8 @@ module.exports = function(user) {
   * @callback requestCallback
   * @param {string} err
   */
-  user.setRole = function(id, rolename) {
-    const User = user.app.models.AppUser;
+  AppUser.setRole = function(id, rolename) {
+    const User = AppUser.app.models.AppUser;
     var roles = transcribaConfig.rbac.roles;
     var rolePosition = roles.indexOf(rolename);
 
@@ -155,7 +152,7 @@ module.exports = function(user) {
     }
   };
 
-  user.remoteMethod(
+  AppUser.remoteMethod(
     'setRole',
     {
       description: 'Give the user this role',
@@ -176,7 +173,7 @@ module.exports = function(user) {
    * @param {boolean} isAllowed
    * @param {object} permissionDetails
    */
-  user.prototype.isAllowedToVoteForRevision = function(revision) {
+  AppUser.prototype.isAllowedToVoteForRevision = function(revision) {
     var me = this;
 
     return Promise.join(
@@ -187,13 +184,13 @@ module.exports = function(user) {
           allowVote: // complex boolean expression
             (
               isEligible &&
-              recentVoteCount < user.maximumRecentRevisionVotes &&
+              recentVoteCount < AppUser.maximumRecentRevisionVotes &&
               revision.ownerId.toJSON() != me.id.toJSON()
             ),
           details: {
             'eligibleVoter': isEligible,
             'maximumVotesReached':
-              recentVoteCount >= user.maximumRecentRevisionVotes,
+              recentVoteCount >= AppUser.maximumRecentRevisionVotes,
             'isOwner': revision.ownerId.toJSON() == me.id.toJSON(),
           }
         };
@@ -207,10 +204,9 @@ module.exports = function(user) {
     * @param {array} rolenames
     * @return {Promise} void
     */
-  user.addRoles = function(id, rolenames) {
-    const User = user.app.models.AppUser;
+  AppUser.addRoles = function(id, rolenames) {
     return Promise.mapSeries(rolenames,
-      (nameOfRole) => User.addRole(id, nameOfRole)
+      (nameOfRole) => AppUser.addRole(id, nameOfRole)
     );
   };
 
@@ -220,8 +216,8 @@ module.exports = function(user) {
     * @param {array} rolenames
     * @return {Promise} void
     */
-  user.removeRoles = function(id, rolenames) {
-    const User = user.app.models.AppUser;
+  AppUser.removeRoles = function(id, rolenames) {
+    const User = AppUser.app.models.AppUser;
     return Promise.mapSeries(rolenames,
       (nameOfRole) => User.removeRole(id, nameOfRole)
     );
@@ -233,10 +229,10 @@ module.exports = function(user) {
    * @param {string} roleName
    * @param {Function} callback
    */
-  user.addRole = function(id, rolename) {
-    const Role = user.app.models.Role;
-    const User = user.app.models.AppUser;
-    const RoleMapping = user.app.models.RoleMapping;
+  AppUser.addRole = function(id, rolename) {
+    const Role = AppUser.app.models.Role;
+    const User = AppUser.app.models.AppUser;
+    const RoleMapping = AppUser.app.models.RoleMapping;
     const userId = id;
 
     return Promise.join(
@@ -267,7 +263,7 @@ module.exports = function(user) {
       }
     );
   };
-  user.remoteMethod(
+  AppUser.remoteMethod(
     'addRole',
     {
       accepts: [
@@ -285,9 +281,9 @@ module.exports = function(user) {
    * @param {string} roleName
    * @param {Function} callback
    */
-  user.removeRole = function(id, rolename) {
-    const Role = user.app.models.Role;
-    const RoleMapping = user.app.models.RoleMapping;
+  AppUser.removeRole = function(id, rolename) {
+    const Role = AppUser.app.models.Role;
+    const RoleMapping = AppUser.app.models.RoleMapping;
     const userId = id;
 
     return Role.findOne({where: {name: rolename}})
@@ -319,7 +315,7 @@ module.exports = function(user) {
         }
       );
   };
-  user.remoteMethod(
+  AppUser.remoteMethod(
     'removeRole',
     {
       description: 'Remove User to the named role',
@@ -332,11 +328,11 @@ module.exports = function(user) {
     }
   );
 
-  user.score = function(req) {
+  AppUser.score = function(req) {
     if (!req.accessToken) throw Exceptions.WrongInput;
     const userId = req.accessToken.userId;
 
-    return user.findById(userId).then(
+    return AppUser.findById(userId).then(
       (resolvedUser) => {
         if (!resolvedUser) throw Exceptions.NotFound.User;
         return resolvedUser.score;
@@ -344,7 +340,7 @@ module.exports = function(user) {
     );
   };
 
-  user.remoteMethod(
+  AppUser.remoteMethod(
     'score',
     {
       description: 'Load the number of score points of the given user',
@@ -363,15 +359,15 @@ module.exports = function(user) {
    * This method returns whether the current user is currently blocking
    * a manuscript (busy) or not
    */
-  user.busy = function(req) {
+  AppUser.busy = function(req) {
     const userId = req.accessToken.userId;
-    return user.findById(userId)
+    return AppUser.findById(userId)
       .then(
         (currentUser) => currentUser.busy
       );
   };
 
-  user.remoteMethod(
+  AppUser.remoteMethod(
     'busy',
     {
       description: 'Load busy state of the given user',
@@ -386,12 +382,12 @@ module.exports = function(user) {
     }
   );
 
-  user.leaderboard = function(maxNumOfUsers) {
+  AppUser.leaderboard = function(maxNumOfUsers) {
     if (maxNumOfUsers == undefined) {
       maxNumOfUsers = 10;
     }
 
-    return user.find({
+    return AppUser.find({
       limit: maxNumOfUsers,
       order: 'score desc'
     }).then(
@@ -406,12 +402,12 @@ module.exports = function(user) {
     );
   };
 
-  user.remoteMethod(
+  AppUser.remoteMethod(
     'leaderboard',
     {
       description: 'Load the best users',
       accepts: [
-        {arg: 'maxNumOfUsers', type: 'number'},
+        {arg: 'maxNumOfUsers', type: 'number'}
       ],
       returns: [
         {arg: 'scores', type: 'array', root: true},
@@ -426,9 +422,9 @@ module.exports = function(user) {
    * that the user completed the getting started tutorial
    * NOTE: users receive a onetime reward for this
    */
-  user.completeTutorial = function(req) {
-    const userId = req.accessToken.userId;
-    return user.findById(userId)
+  AppUser.completeTutorial = function(request) {
+    const userId = request.accessToken.userId;
+    return AppUser.findById(userId)
       .then(
         (currentUser) => {
           // ensure that users only receive the reward once
@@ -441,12 +437,12 @@ module.exports = function(user) {
       );
   };
 
-  user.remoteMethod(
+  AppUser.remoteMethod(
     'completeTutorial',
     {
       description: 'Set the tutorial flag to true',
       accepts: [
-        {arg: 'req', type: 'object', required: true, http: {source: 'req'}},
+        {arg: 'request', type: 'object', required: true, http: {source: 'req'}},
       ],
       returns: [],
       http: {path: '/tutorial', verb: 'post'},
@@ -455,7 +451,7 @@ module.exports = function(user) {
   );
 
   // prevent users from logging in as 'bot'
-  user.beforeRemote('login', function(context, instance, next) {
+  AppUser.beforeRemote('login', function(context, instance, next) {
     const reqBody = context.req.body;
 
     if (
@@ -474,24 +470,24 @@ module.exports = function(user) {
     }
   });
 
-  user.numOfEligibleVoters = function() {
-    return user.count({
+  AppUser.numOfEligibleVoters = function() {
+    return AppUser.count({
       score: {
-        gt: user.minimumRevisionVotingScore - 1,
+        gt: AppUser.minimumRevisionVotingScore - 1,
       },
     });
   };
 
-  // TODO: error handling
   /**
    * Loads roles of user with the given id
    * NOTE: this is a replacement for the normal
    * user.roles relation (workaround see #19)
+   * @todo error handling
    */
-  user.loadRoles = function(id) {
-    const User = user.app.models.AppUser;
-    const RoleMapping = user.app.models.RoleMapping;
-    const Role = user.app.models.Role;
+  AppUser.loadRoles = function(id) {
+    const User = AppUser.app.models.AppUser;
+    const RoleMapping = AppUser.app.models.RoleMapping;
+    const Role = AppUser.app.models.Role;
 
     // first make sure the user with userId id exists
     return User.findById(id).then(
@@ -512,7 +508,7 @@ module.exports = function(user) {
     );
   };
 
-  user.remoteMethod(
+  AppUser.remoteMethod(
     'loadRoles',
     {
       accepts: [
@@ -525,12 +521,12 @@ module.exports = function(user) {
     }
   );
 
-  user.disableRemoteMethodByName('__create__roles', false);
-  user.disableRemoteMethodByName('__delete__roles', false);
-  user.disableRemoteMethodByName('__link__roles', false);
-  user.disableRemoteMethodByName('__unlink__roles', false);
-  user.disableRemoteMethodByName('__updateById__roles', false);
-  user.disableRemoteMethodByName('__findById__roles', false);
-  user.disableRemoteMethodByName('__destroyById__roles', false);
-  user.disableRemoteMethodByName('__exists__roles', false);
+  AppUser.disableRemoteMethodByName('__create__roles', false);
+  AppUser.disableRemoteMethodByName('__delete__roles', false);
+  AppUser.disableRemoteMethodByName('__link__roles', false);
+  AppUser.disableRemoteMethodByName('__unlink__roles', false);
+  AppUser.disableRemoteMethodByName('__updateById__roles', false);
+  AppUser.disableRemoteMethodByName('__findById__roles', false);
+  AppUser.disableRemoteMethodByName('__destroyById__roles', false);
+  AppUser.disableRemoteMethodByName('__exists__roles', false);
 };
