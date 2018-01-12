@@ -571,7 +571,8 @@ module.exports = function(TranscribaObject) {
 
     // clean up child elements
     let children = content.children.map(
-      childContent => TranscribaObject.cleanUpContent(childContent, markUntouched)
+      childContent =>
+        TranscribaObject.cleanUpContent(childContent, markUntouched)
     );
 
     // cleaned structure
