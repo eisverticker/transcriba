@@ -1,5 +1,5 @@
 'use strict';
 
-module.exports = function(Userparticipation) {
+module.exports = function(UserParticipation) {
 
 };
