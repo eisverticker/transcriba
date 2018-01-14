@@ -1,5 +1,5 @@
 'use strict';
 
-module.exports = function(Collectionmapping) {
+module.exports = function(CollectionMapping) {
 
 };
