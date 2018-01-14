@@ -30,29 +30,32 @@ module.exports = function(server) {
   });
 
   // reset the user's pasword (loopback-example-user-management-code [MIT])
-  router.post('/reset-password', function(req, res, next) {
-    if (!req.accessToken) return res.sendStatus(401);
+  router.post('/reset-password', function(request, response, next) {
+    if (!request.accessToken) return response.sendStatus(401);
+    const userId = request.accessToken.userId;
 
     // verify passwords match
-    if (!req.body.password ||
-        !req.body.confirmation ||
-        req.body.password !== req.body.confirmation) {
-      return res.sendStatus(400, new Error('Passwords do not match'));
+    if (!request.body.password ||
+        !request.body.confirmation ||
+        request.body.password !== request.body.confirmation) {
+      return response.sendStatus(400, new Error('Passwords do not match'));
     }
 
-    server.models.AppUser.findById(req.accessToken.userId, function(err, user) {
-      if (err) return res.sendStatus(404);
+    server.models.AppUser.findById(userId, function(error, user) {
+      if (error) return response.sendStatus(404);
+      const newPassword = request.body.password;
 
-      user.updateAttribute('password', req.body.password, function(err, user) {
-        if (err) return res.sendStatus(404);
-        console.log('> password reset processed successfully');
-        res.render('response', {
-          title: 'Password reset success',
-          content: 'Your password has been reset successfully',
-          redirectTo: '/',
-          redirectToLinkText: 'Log in',
-        });
-      });
+      user.updateAttribute('password', newPassword)
+        .then(
+          () => response.render('response', {
+            title: 'Password reset success',
+            content: 'Your password has been reset successfully',
+            redirectTo: '/',
+            redirectToLinkText: 'Log in'
+          })
+        ).catch(
+          () => response.sendStatus(404)
+        );
     });
   });
 };
