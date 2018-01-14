@@ -66,6 +66,26 @@ module.exports = function(AppUser) {
     });
   });
 
+  // prevent users from logging in as 'bot'
+  AppUser.beforeRemote('login', function(context) {
+    const reqBody = context.req.body;
+
+    if (
+      (
+        reqBody.username !== undefined &&
+        reqBody.username == transcribaConfig.bot.username
+      ) ||
+      (
+        reqBody.email !== undefined &&
+        reqBody.email == transcribaConfig.bot.email
+      )
+    ) {
+      throw Exceptions.Forbidden;
+    } else {
+      return Promise.resolve(null);
+    }
+  });
+
   /**
   * Checks whether the current user has the given role or not
   * @todo: error handling
@@ -131,8 +151,7 @@ module.exports = function(AppUser) {
   * @callback requestCallback
   * @param {string} err
   */
-  AppUser.setRole = function(id, rolename) {
-    const User = AppUser.app.models.AppUser;
+  AppUser.setRole = function(rolename) {
     var roles = transcribaConfig.rbac.roles;
     var rolePosition = roles.indexOf(rolename);
 
@@ -142,13 +161,11 @@ module.exports = function(AppUser) {
       // delete all roles which are higher than the given role
       // and add all role which are lower than the given role
       //
-      return User.addRoles(id, roles.slice(0, rolePosition + 1)).then(
-        () => User.removeRoles(
-          id, roles.slice(rolePosition + 1)
-        )
+      return this.addRoles(roles.slice(0, rolePosition + 1)).then(
+        () => this.removeRoles(roles.slice(rolePosition + 1))
       );
     } else {
-      return User.addRole(id, rolename);
+      return this.addRole(rolename);
     }
   };
 
@@ -168,14 +185,13 @@ module.exports = function(AppUser) {
   /**
    * Checks if the user is permitted to vote for the given revision
    * @param {Revision} revision
-   * @callback requestCallback
+   * @promise permissions
    * @param {string} err
    * @param {boolean} isAllowed
    * @param {object} permissionDetails
+   * @todo check .toJSON() call in line 210 (is this necessary?)
    */
   AppUser.prototype.isAllowedToVoteForRevision = function(revision) {
-    var me = this;
-
     return Promise.join(
       this.isEligibleVoter(),
       this.numOfRecentVotes('Revision'),
@@ -185,13 +201,13 @@ module.exports = function(AppUser) {
             (
               isEligible &&
               recentVoteCount < AppUser.maximumRecentRevisionVotes &&
-              revision.ownerId.toJSON() != me.id.toJSON()
+              revision.ownerId.toJSON() != this.id.toJSON()
             ),
           details: {
             'eligibleVoter': isEligible,
             'maximumVotesReached':
               recentVoteCount >= AppUser.maximumRecentRevisionVotes,
-            'isOwner': revision.ownerId.toJSON() == me.id.toJSON(),
+            'isOwner': revision.ownerId.toJSON() == this.id.toJSON(),
           }
         };
       }
@@ -204,9 +220,9 @@ module.exports = function(AppUser) {
     * @param {array} rolenames
     * @return {Promise} void
     */
-  AppUser.addRoles = function(id, rolenames) {
+  AppUser.prototype.addRoles = function(rolenames) {
     return Promise.mapSeries(rolenames,
-      (nameOfRole) => AppUser.addRole(id, nameOfRole)
+      (nameOfRole) => this.addRole(nameOfRole)
     );
   };
 
@@ -216,75 +232,61 @@ module.exports = function(AppUser) {
     * @param {array} rolenames
     * @return {Promise} void
     */
-  AppUser.removeRoles = function(id, rolenames) {
-    const User = AppUser.app.models.AppUser;
-    return Promise.mapSeries(rolenames,
-      (nameOfRole) => User.removeRole(id, nameOfRole)
-    );
+  AppUser.prototype.removeRoles = function(rolenames) {
+    return Promise.mapSeries(rolenames, this.removeRole);
   };
 
   /**
-   * Add the user to the given role by name.
+   * Give the user a role by role name
    * (original src: https://gist.github.com/leftclickben/aa3cf418312c0ffcc547)
-   * @param {string} roleName
-   * @param {Function} callback
-   */
-  AppUser.addRole = function(id, rolename) {
-    const Role = AppUser.app.models.Role;
-    const User = AppUser.app.models.AppUser;
-    const RoleMapping = AppUser.app.models.RoleMapping;
-    const userId = id;
-
-    return Promise.join(
-      User.findById(userId),
-      Role.findOne({where: {name: rolename}}),
-      (user, role) => {
-        if (!user || !role) throw Exceptions.NotFound.Default;
-        return RoleMapping.findOne({
-          where: {
-            principalType: RoleMapping.USER,
-            principalId: userId,
-            roleId: role.id,
-          }
-        }).then(
-          (roleMapping) => {
-            if (roleMapping) {
-              // role is already associated to the user
-              return;
-            } else {
-              // assign role to user
-              return role.principals.create({
-                principalType: RoleMapping.USER,
-                principalId: userId
-              });
-            }
-          }
-        );
-      }
-    );
-  };
-  AppUser.remoteMethod(
-    'addRole',
-    {
-      accepts: [
-        {arg: 'id', type: 'string'},
-        {arg: 'rolename', type: 'string'},
-      ],
-      http: {path: '/:id/roles', verb: 'put'},
-    }
-  );
-
-  /**
-   * Remove the user from the given role by name.
-   * (original src: https://gist.github.com/leftclickben/aa3cf418312c0ffcc547)
+   * @private
    *
    * @param {string} roleName
    * @param {Function} callback
    */
-  AppUser.removeRole = function(id, rolename) {
+  AppUser.addRole = function(rolename) {
     const Role = AppUser.app.models.Role;
     const RoleMapping = AppUser.app.models.RoleMapping;
-    const userId = id;
+
+    return Role.findOne({where: {name: rolename}})
+      .then(
+        (role) => {
+          if (!role) throw Exceptions.NotFound.Role;
+          return RoleMapping.findOne({
+            where: {
+              principalType: RoleMapping.USER,
+              principalId: this.id,
+              roleId: role.id,
+            }
+          }).then(
+            (roleMapping) => {
+              if (roleMapping) {
+                // role is already associated to the user
+                return;
+              } else {
+                // assign role to user
+                return role.principals.create({
+                  principalType: RoleMapping.USER,
+                  principalId: this.id
+                });
+              }
+            }
+          );
+        }
+      );
+  };
+
+  /**
+   * Remove the user from the given role by name.
+   * (original src: https://gist.github.com/leftclickben/aa3cf418312c0ffcc547)
+   * @private
+   *
+   * @param {string} roleName
+   * @param {Function} callback
+   */
+  AppUser.prototype.removeRole = function(rolename) {
+    const Role = AppUser.app.models.Role;
+    const RoleMapping = AppUser.app.models.RoleMapping;
 
     return Role.findOne({where: {name: rolename}})
       .then(
@@ -297,7 +299,7 @@ module.exports = function(AppUser) {
             {
               where: {
                 principalType: RoleMapping.USER,
-                principalId: userId,
+                principalId: this.id,
                 roleId: role.id
               }
             }
@@ -315,18 +317,6 @@ module.exports = function(AppUser) {
         }
       );
   };
-  AppUser.remoteMethod(
-    'removeRole',
-    {
-      description: 'Remove User to the named role',
-      accessType: 'WRITE',
-      accepts: [
-        {arg: 'id', type: 'string'},
-        {arg: 'rolename', type: 'string'},
-      ],
-      http: {path: '/:id/roles/:rolename', verb: 'delete'},
-    }
-  );
 
   AppUser.score = function(req) {
     if (!req.accessToken) throw Exceptions.WrongInput;
@@ -450,37 +440,18 @@ module.exports = function(AppUser) {
     }
   );
 
-  // prevent users from logging in as 'bot'
-  AppUser.beforeRemote('login', function(context, instance, next) {
-    const reqBody = context.req.body;
-
-    if (
-      (
-        reqBody.username !== undefined &&
-        reqBody.username == transcribaConfig.bot.username
-      ) ||
-      (
-        reqBody.email !== undefined &&
-        reqBody.email == transcribaConfig.bot.email
-      )
-    ) {
-      next(Exceptions.Forbidden);
-    } else {
-      next();
-    }
-  });
-
+  /**
+   * Get number of users which may vote in general
+   * this does not consider owner conditions
+   */
   AppUser.numOfEligibleVoters = function() {
-    return AppUser.count({
-      score: {
-        gt: AppUser.minimumRevisionVotingScore - 1,
-      },
-    });
+    return AppUser.count({score: {gt: AppUser.minimumRevisionVotingScore - 1}});
   };
 
   /**
    * Loads roles of user with the given id
    * NOTE: this is a replacement for the normal
+   * NOTE: this should remain static
    * user.roles relation (workaround see #19)
    * @todo error handling
    */
