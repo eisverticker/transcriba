@@ -31,9 +31,11 @@ module.exports = function(Collection) {
     );
   };
 
+  /**
+   * Add a dynamically calculated progress value to Collection model
+   * which indicates the current status of the items included
+   */
   Collection.afterRemote('find', function(context, collections) {
-    //context.args.data.date = Date.now();
-    //context.args.data.publisherId = context.req.accessToken.userId;
     return Promise.map(collections,
       (collectionData) => Collection.findById(collectionData.id).then(
         (collection) => collection.progress()
