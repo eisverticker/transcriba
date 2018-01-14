@@ -1,5 +1,7 @@
 'use strict';
 
+const Promise = require('bluebird');
+
 module.exports = function(Collection) {
   /**
    * Current completion status of this collection
@@ -28,4 +30,39 @@ module.exports = function(Collection) {
       (sum) => sum / upperLimit
     );
   };
+
+  Collection.afterRemote('find', function(context, collections) {
+    //context.args.data.date = Date.now();
+    //context.args.data.publisherId = context.req.accessToken.userId;
+    return Promise.map(collections,
+      (collectionData) => Collection.findById(collectionData.id).then(
+        (collection) => collection.progress()
+      )
+    ).then(
+      (progressArray) => progressArray.forEach(
+        (value, index) => collections[index].progress = value
+      )
+    );
+  });
+
+  // Using findById method on loaded does not work
+  // However, this is being kept, to prevent others to try the same
+  // NOTE: remove this if you think you have the reason for that behaviour
+  // Collection.observe('loaded', function(ctx) {
+
+  // findById does not seem to load
+  // return Collection.findById(ctx.data.id).then(
+  //   (currentCollection) => currentCollection.progress()
+  // ).then(
+  //  (progress) => {
+  //    ctx.data.progress = progress;
+  //    return;
+  //  }
+  // ).catch(
+  //  (_err) => {
+  //    console.log('error was catched during collection loaded hook');
+  //    next();
+  //  }
+  // );
+  // });
 };
