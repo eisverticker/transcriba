@@ -1,13 +1,13 @@
 'use strict';
 
-var loopback = require('loopback');
-var boot = require('loopback-boot');
-var path = require('path');
-var bodyParser = require('body-parser');
-var engine = require('ejs-mate');
-var transcribaConfig = require('./transcriba-config.json');
+const loopback = require('loopback');
+const boot = require('loopback-boot');
+const path = require('path');
+const bodyParser = require('body-parser');
+const engine = require('ejs-mate');
+const transcribaConfig = require('./transcriba-config.json');
 
-var app = module.exports = loopback();
+const app = module.exports = loopback();
 
 // use ejs-locals for all ejs templates:
 app.engine('ejs', engine);
@@ -26,10 +26,10 @@ app.start = function() {
   // start the web server
   return app.listen(function() {
     app.emit('started');
-    var baseUrl = app.get('url').replace(/\/$/, '');
+    const baseUrl = app.get('url').replace(/\/$/, '');
     console.log('Web server listening at: %s', baseUrl);
     if (app.get('loopback-component-explorer')) {
-      var explorerPath = app.get('loopback-component-explorer').mountPath;
+      const explorerPath = app.get('loopback-component-explorer').mountPath;
       console.log('Browse your REST API at %s%s', baseUrl, explorerPath);
     }
   });

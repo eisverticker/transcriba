@@ -85,5 +85,34 @@
       "property": "completeTutorial"
     }
   ],
-  "methods": {}
+  "methods": {
+    "prototype.setRole": {
+      "accepts": [
+        {
+          "arg": "rolename",
+          "type": "number",
+          "required": true,
+          "description": "Name of the role which should be given (must exist on system)",
+          "http": {
+            "source": "query"
+          }
+        }
+      ],
+      "returns": [
+        {
+          "arg": "success",
+          "type": "boolean",
+          "root": true,
+          "description": "Indicates whether the operation was successful"
+        }
+      ],
+      "description": "Give a user a role and additionally all roles below if hierachical rbac is allowed",
+      "http": [
+        {
+          "path": "/roles",
+          "verb": "post"
+        }
+      ]
+    }
+  }
 }
