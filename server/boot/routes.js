@@ -2,26 +2,26 @@
 
 module.exports = function(server) {
   // Install a `/` route that returns server status
-  var router = server.loopback.Router();
+  const router = server.loopback.Router();
   router.get('/', server.loopback.status());
 
   server.use(router);
 
   // home route which is welcoming the user
-  router.get('/home', function(req, res, next) {
+  router.get('/home', function(req, res, _next) {
     res.render('home', {
       'title': 'Hallo',
     });
   });
 
-  router.get('/verified', function(req, res, next) {
+  router.get('/verified', function(req, res, _next) {
     res.render('verified', {
       'title': 'Verifizierung erfolgreich!',
     });
   });
 
   // show password reset form (loopback-example-user-management-code [MIT])
-  router.get('/reset-password', function(req, res, next) {
+  router.get('/reset-password', function(req, res, _next) {
     if (!req.accessToken) return res.sendStatus(401);
     res.render('password-reset', {
       accessToken: req.accessToken.id,
@@ -30,7 +30,7 @@ module.exports = function(server) {
   });
 
   // reset the user's pasword (loopback-example-user-management-code [MIT])
-  router.post('/reset-password', function(request, response, next) {
+  router.post('/reset-password', function(request, response, _next) {
     if (!request.accessToken) return response.sendStatus(401);
     const userId = request.accessToken.userId;
 

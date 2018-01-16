@@ -25,5 +25,6 @@ module.exports = {
   BusyUser: new Error('User is busy'),
   WrongInput: new Error('Lack of mandatory input parameters'),
   Unauthorized: new Error('User has not the required permissions'),
-  Forbidden: new Error('This action is not allowed')
+  Forbidden: new Error('This action is not allowed'),
+  WrongRoleOrder: new Error('one role is on a forbidden position')
 };

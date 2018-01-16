@@ -1,16 +1,17 @@
 'use strict';
 
-var faker = require('faker');
-var transcribaConfig = require('../transcriba-config.json');
+const Promise = require('bluebird');
+const faker = require('faker');
+const transcribaConfig = require('../transcriba-config.json');
 
 module.exports = function(server) {
   if (!transcribaConfig.seedDatabase) return;
-  var User = server.models.AppUser;
+  const AppUser = server.models.AppUser;
 
-  var users = [];
+  let users = [];
 
   // fake some user data
-  for (var i = 0; i < transcribaConfig.seeding.users; i++) {
+  for (let i = 0; i < transcribaConfig.seeding.users; i++) {
     users.push({
       username: faker.internet.userName(),
       email: faker.internet.email(),
@@ -19,29 +20,16 @@ module.exports = function(server) {
     });
   }
 
-  // function which persists users to database
-  var seedUsers = function(users, callback) {
-    if (users.length > 0) {
-      var user = users.pop();
-
-      User.create(user, function(err, u) {
-        if (err) return callback(err);
-
-        User.setRole(u.id, transcribaConfig.rbac.defaultRole, function(err) {
-          if (err) return callback(err);
-
-          seedUsers(users, callback);
-        });
-      });
-    } else {
-      callback(null);
-    }
+  const seedUsers = function(users) {
+    return Promise.map(
+      users,
+      (userData) => AppUser.create(userData)
+        .then(
+          (user) => user.setRole(transcribaConfig.rbac.defaultRole)
+        )
+    );
   };
 
   // user seeding
-  seedUsers(users, function(err) {
-    if (err) throw err;
-
-    console.log('users successfully seeded');
-  });
+  seedUsers(users);
 };

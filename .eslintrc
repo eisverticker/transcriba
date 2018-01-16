@@ -5,6 +5,7 @@
   },
   "rules": {
     "no-unused-vars": "warn",
+    "no-var": "error",
     "no-undef": "warn",
     "strict": "error",
     "array-bracket-spacing": "warn",

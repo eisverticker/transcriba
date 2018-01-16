@@ -11,16 +11,17 @@ module.exports = function(AppUser) {
   AppUser.minimumRevisionVotingScore = votingRequirements.minimumScore;
   AppUser.maximumRecentRevisionVotes = votingRequirements.maximumVotesPerDay;
 
-  AppUser.afterRemote('confirm', function(context, result, next) {
+  AppUser.afterRemote('confirm', function(context) {
     const User = AppUser.app.models.AppUser;
     // if the user is confirmed he will get the default role
-    var role = transcribaConfig.rbac.defaultRole;
+    const role = transcribaConfig.rbac.defaultRole;
 
-    User.setRole(context.req.query.uid, role, function(err) {
-      if (err) return next(err);
-
-      return next();
-    });
+    return User.findById(context.req.query.uid).then(
+      (user) => {
+        if (!user) throw Exceptions.NotFound.User;
+        return user.setRole(role);
+      }
+    );
   });
 
   // send verification email after registration
@@ -110,11 +111,10 @@ module.exports = function(AppUser) {
   * @param {boolean} isEligible;
   */
   AppUser.prototype.isEligibleVoter = function() {
-    var me = this;
     return this.hasRole('trusted')
       .then(
         (isTrusted) =>
-          me.score >= AppUser.minimumRevisionVotingScore || isTrusted
+          this.score >= AppUser.minimumRevisionVotingScore || isTrusted
       );
   };
 
@@ -143,17 +143,14 @@ module.exports = function(AppUser) {
   };
 
   /**
-  * The effect of this method depends on the server settings, but
-  * it should give the user the specified role plus all roles below in the
-  * hierachy (if rbac is hierachical) and delete all above
-  * @param {string} id;
-  * @param {string} rolename
-  * @callback requestCallback
-  * @param {string} err
-  */
-  AppUser.setRole = function(rolename) {
-    var roles = transcribaConfig.rbac.roles;
-    var rolePosition = roles.indexOf(rolename);
+   * Give a user a role and additionally all roles below if hierachical rbac is allowed
+   * @param {number} rolename Name of the role which should be given (must exist on system)
+   * @param {Promise<boolean>}
+   */
+
+  AppUser.prototype.setRole = function(rolename) {
+    const roles = transcribaConfig.rbac.roles;
+    const rolePosition = roles.indexOf(rolename);
 
     if (rolePosition == -1) throw Exceptions.NotFound.Role;
 
@@ -168,19 +165,6 @@ module.exports = function(AppUser) {
       return this.addRole(rolename);
     }
   };
-
-  AppUser.remoteMethod(
-    'setRole',
-    {
-      description: 'Give the user this role',
-      accessType: 'WRITE',
-      accepts: [
-        {arg: 'id', type: 'string'},
-        {arg: 'rolename', type: 'string'},
-      ],
-      http: {path: '/roles', verb: 'post'},
-    }
-  );
 
   /**
    * Checks if the user is permitted to vote for the given revision
@@ -233,7 +217,56 @@ module.exports = function(AppUser) {
     * @return {Promise} void
     */
   AppUser.prototype.removeRoles = function(rolenames) {
-    return Promise.mapSeries(rolenames, this.removeRole);
+    return Promise.mapSeries(rolenames,
+      (nameOfRole) => this.removeRole(nameOfRole)
+    );
+  };
+
+  /**
+   * Dynamically add roles with the given role names to
+   * the system
+   * NOTE: this is usually done on install and not on a running system
+   */
+  AppUser.createRoles = function(roleNames) {
+    const Role = AppUser.app.models.Role;
+    const RoleMapping = AppUser.app.models.RoleMapping;
+    let currentRole, principal;
+
+    // use reduce to always get the result of the previous
+    // promise (role object) for hierachical roles
+    return Promise.reduce(roleNames,
+      (previousRole, roleName) => {
+        return Role.findOrCreate(
+          {where: {'name': roleName}},
+          {name: roleName}
+        ).then(
+          (mixed) => {
+            const role = mixed[0];
+            // the whole hierachical role support makes this
+            // a little bit more difficult, so read carefully
+            if (!role) throw Exceptions.NotFound.Role;
+            currentRole = role;
+            if (!transcribaConfig.rbac.hierachical || !previousRole) {
+              return currentRole;
+            }
+            principal = {
+              principalType: RoleMapping.ROLE,
+              principalId: role.id,
+            };
+            return previousRole.principals.findOne(principal).then(
+              (roleMapping) => {
+                // continue if role mapping already exists
+                if (roleMapping) return;
+                return previousRole.principals.create(principal);
+              }
+            ).then(
+              () => currentRole // finally return new role
+            );
+          }
+        );
+      }, // end of reduce arrow function
+      null
+    ); // end of reduce call
   };
 
   /**
@@ -244,7 +277,7 @@ module.exports = function(AppUser) {
    * @param {string} roleName
    * @param {Function} callback
    */
-  AppUser.addRole = function(rolename) {
+  AppUser.prototype.addRole = function(rolename) {
     const Role = AppUser.app.models.Role;
     const RoleMapping = AppUser.app.models.RoleMapping;
 
