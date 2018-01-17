@@ -8,7 +8,7 @@ module.exports = function(Discussion) {
   Discussion.beforeRemote('prototype.__create__comments',
     function(context, comment, next) {
       // Require user to be authorized
-      var userId = context.req.accessToken.userId;
+      const userId = context.req.accessToken.userId;
       if (!userId) {
         throw 'authorisation required';
       }

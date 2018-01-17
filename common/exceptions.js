@@ -11,6 +11,7 @@ module.exports = {
     Default: new Error('model(s) not found'),
     TranscribaObject: new Error('trObject was not found'),
     Collection: new Error('Collection was not found'),
+    InfoPage: new Error('InfoPage was not found'),
     User: new Error('User was not found'),
     Role: new Error('Role was not found'),
     Directory: new Error('directory does not exist'),
