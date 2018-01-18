@@ -43,7 +43,15 @@
       "polymorphic": "collectionable"
     }
   },
-  "acls": [],
+  "acls": [
+    {
+      "accessType": "EXECUTE",
+      "principalType": "ROLE",
+      "principalId": "$everyone",
+      "permission": "ALLOW",
+      "property": "thumbnail"
+    }    
+  ],
   "methods": {
     "prototype.progress": {
       "accepts": [],
@@ -59,6 +67,32 @@
       "http": [
         {
           "path": "/progress",
+          "verb": "get"
+        }
+      ]
+    },
+    "prototype.thumbnail": {
+      "accepts": [],
+      "returns": [
+        {
+          "arg": "image",
+          "type": "file",
+          "root": true,
+          "description": "Image data"
+        },
+        {
+          "arg": "contentType",
+          "type": "string",
+          "http": {
+            "target": "header",
+            "header": "Content-Type"
+          }
+        }
+      ],
+      "description": "Print thumbnail image",
+      "http": [
+        {
+          "path": "/thumbnail",
           "verb": "get"
         }
       ]

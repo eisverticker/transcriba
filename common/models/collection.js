@@ -1,8 +1,41 @@
 'use strict';
 
 const Promise = require('bluebird');
+const Exceptions = require('../exceptions.js');
 
 module.exports = function(Collection) {
+  /**
+   * Add a dynamically calculated progress value to Collection model
+   * which indicates the current status of the items included
+   */
+  Collection.afterRemote('find', function(context, collections) {
+    return Promise.map(collections,
+      (collectionData) => Collection.findById(collectionData.id).then(
+        (collection) => collection.progress()
+      )
+    ).then(
+      (progressArray) => progressArray.forEach(
+        (value, index) => collections[index].progress = value
+      )
+    );
+  });
+
+  /**
+   * Print thumbnail image
+   * @return {Promise}
+   */
+  Collection.prototype.thumbnail = function() {
+    return this.transcribaObjects.find().then(
+      (trObjects) => {
+        if (trObjects.length === 0) {
+          throw Exceptions.NotImplemented;
+        } else {
+          return trObjects[0].thumbnail();
+        }
+      }
+    );
+  };
+
   /**
    * Current completion status of this collection
    * TODO: make this recursive
@@ -30,22 +63,6 @@ module.exports = function(Collection) {
       (sum) => sum / upperLimit
     );
   };
-
-  /**
-   * Add a dynamically calculated progress value to Collection model
-   * which indicates the current status of the items included
-   */
-  Collection.afterRemote('find', function(context, collections) {
-    return Promise.map(collections,
-      (collectionData) => Collection.findById(collectionData.id).then(
-        (collection) => collection.progress()
-      )
-    ).then(
-      (progressArray) => progressArray.forEach(
-        (value, index) => collections[index].progress = value
-      )
-    );
-  });
 
   // Using findById method on loaded does not work
   // However, this is being kept, to prevent others to try the same

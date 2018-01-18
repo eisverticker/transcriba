@@ -19,6 +19,7 @@ module.exports = {
     RelatedModel: new Error('cannot find related model'),
     Image: new Error('image file not found')
   },
+  NotImplemented: new Error('function was not yet implemented'),
   WrongFormat: new Error('Expected data format was different'),
   Duplicate: new Error('Cannot create a duplicate model'),
   Replay: new Error('Action was already done'),
