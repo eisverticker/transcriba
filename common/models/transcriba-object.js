@@ -284,7 +284,7 @@ module.exports = function(TranscribaObject) {
 
   /**
    * Print thumbnail image
-   * @param {Function(Error, )} callback
+   * @return {Promise}
    */
   TranscribaObject.prototype.thumbnail = function() {
     const path = 'imports/' + this.id + '/';
