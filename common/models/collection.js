@@ -2,6 +2,9 @@
 
 const Promise = require('bluebird');
 const Exceptions = require('../exceptions.js');
+const fs = Promise.promisifyAll(require('fs'));
+const transcribaConfig = require('../../server/transcriba-config.json');
+const sharp = require('sharp');
 
 module.exports = function(Collection) {
   /**
@@ -25,10 +28,22 @@ module.exports = function(Collection) {
    * @return {Promise}
    */
   Collection.prototype.thumbnail = function() {
+    const imageType = 'png';
     return this.transcribaObjects.find().then(
       (trObjects) => {
         if (trObjects.length === 0) {
-          throw Exceptions.NotImplemented;
+          const assetPath = transcribaConfig.assetDirectory;
+          const file = 'emptyThumbnail.png';
+          return fs.readFileAsync(assetPath + '/images/' + file)
+            .then(
+              (data) => [data, 'image/' + imageType]
+            )
+            .catch(
+              (_err) => {
+                // convert error type
+                throw Exceptions.NotFound.Image;
+              }
+            );
         } else {
           return trObjects[0].thumbnail();
         }
@@ -54,13 +69,12 @@ module.exports = function(Collection) {
         // calculate the highest possible amount of accumulated stages
         upperLimit = trObjects.length * TranscribaObject.highestStage;
 
-        return trObjects.reduce(
+        let sum = trObjects.reduce(
           (sum, trObject) => sum + trObject.stage
           , 0
         );
+        return sum / upperLimit;
       }
-    ).then(
-      (sum) => sum / upperLimit
     );
   };
 

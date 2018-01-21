@@ -21,6 +21,11 @@ const ObjectMetadata = require('../interfaces/object-metadata.js');
 module.exports = function(TranscribaObject) {
   TranscribaObject.tileSize = transcribaConfig.viewer.tileSize;
   TranscribaObject.highestStage = 3;
+  // TODO: add to transcribaConfig
+  TranscribaObject.thumbnailDimensions = {
+    width: 200,
+    height: 200
+  };
 
   TranscribaObject.prototype.publishGeneratedTags = function() {
     this.publicTags = unique(this.publicTags.concat(this.generatedTags));
@@ -41,17 +46,12 @@ module.exports = function(TranscribaObject) {
       {
         outputFile: '/overview.jpg',
         width: undefined,
-        height: 512,
-      },
-      {
-        outputFile: '/small.jpg',
-        width: undefined,
-        height: 128,
+        height: 512
       },
       {
         outputFile: '/thumbnail.jpg',
-        width: 200,
-        height: 200,
+        width: TranscribaObject.thumbnailDimensions.width,
+        height: TranscribaObject.thumbnailDimensions.width
       }
     ];
 
@@ -278,8 +278,25 @@ module.exports = function(TranscribaObject) {
   TranscribaObject.prototype.tiles = function(zoom, x, y) {
     const path = 'imports/' + this.id + '/tiled/';
     const file = zoom + '/' + y + '/' + x + '.jpg';
+    const imageType = 'png';
 
-    return TranscribaObject.printImage(path, file, 'jpeg');
+    return TranscribaObject.printImage(path, file, 'jpeg')
+      // catch errors and return a blank image as correction
+      .catch(
+        (_error) => sharp({
+          create: {
+            width: transcribaConfig.viewer.tileSize,
+            height: transcribaConfig.viewer.tileSize,
+            channels: 4,
+            background: {r: 255, g: 255, b: 255, alpha: 128}
+          }
+        })
+          .png()
+          .toBuffer()
+          .then(
+            (data) => [data, 'image/' + imageType]
+          )
+      );
   };
 
   /**
