@@ -45,5 +45,6 @@
   },
   "viewer": {
     "tileSize": 256
-  }  
+  },
+  "assetDirectory": "common/assets"  
 }
