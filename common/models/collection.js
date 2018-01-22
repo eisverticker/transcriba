@@ -4,7 +4,6 @@ const Promise = require('bluebird');
 const Exceptions = require('../exceptions.js');
 const fs = Promise.promisifyAll(require('fs'));
 const transcribaConfig = require('../../server/transcriba-config.json');
-const sharp = require('sharp');
 
 module.exports = function(Collection) {
   /**
