@@ -17,6 +17,7 @@ const Exceptions = require('../../common/exceptions.js');
  */
 module.exports = function(server) {
   const AppUser = server.models.AppUser;
+  const Collection = server.models.Collection;
   const roleNames = transcribaConfig.rbac.roles.slice(); // copy roles
 
   // ensure that administrator is the last role
@@ -64,4 +65,7 @@ module.exports = function(server) {
       );
     }
   ); // end join
+
+  // Create root Collection if not found
+  Collection.findOrCreate({where: {name: 'root'}}, {name: 'root'});
 };
