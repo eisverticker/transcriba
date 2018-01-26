@@ -11,6 +11,11 @@
       "required": true,
       "default": "unknown"
     },
+    "root_url": {
+      "type": "string",
+      "required": true,
+      "default": "none"
+    },
     "url": {
       "type": "string",
       "required": true,

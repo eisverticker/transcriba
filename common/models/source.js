@@ -6,7 +6,7 @@ const request = require('request-promise');
 module.exports = function(Source) {
   Source.afterRemote('replaceOrCreate', function(ctx, source, next) {
     const sourceName = source.title;
-    const Collection = ctx.models.Collection;
+    const Collection = Source.app.models.Collection;
     //
     // automatically create a Collection with the same name as the source
     //
@@ -18,7 +18,6 @@ module.exports = function(Source) {
       'locked': true,
     }).then(
       (sourceCollection) => {
-        source.save();
         return Collection.findOne({where: {name: 'root'}}).then(
           (rootCollection) => rootCollection.collections.add(sourceCollection)
         ).then(
