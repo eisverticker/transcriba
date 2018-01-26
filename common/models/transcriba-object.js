@@ -120,17 +120,16 @@ module.exports = function(TranscribaObject) {
   };
 
   TranscribaObject.importMetadata = function(source, externalId) {
-    return request(source.url.replace('{id}', externalId))
-      .then(
-        // create object from response body
-        (response, body) => JSON.parse(body)
-      )
+    console.log('source', source);
+    console.log('extId', externalId);
+    return request(source.url.replace('{id}', externalId), {json: true})
       .then(
         // check format of received metadata object
         (metadata) => {
           if (!checkTypes.like(metadata, ObjectMetadata)) {
             throw Exceptions.WrongFormat;
           }
+          console.log('metadata', metadata);
           return metadata;
         }
       );
@@ -154,13 +153,16 @@ module.exports = function(TranscribaObject) {
    * collection
    */
   TranscribaObject.prototype.addToSourceCollection = function() {
-    return this.source.collection().then(
-      (collection) => {
-        if (!collection) throw Exceptions.NotFound.Collection;
-        // add transcribaObject to that collection
-        return collection.transcribaObjects.add(this);
-      }
-    );
+    return this.source.get()
+      .then(
+        (source) => source.collection.get()
+      ).then(
+        (collection) => {
+          if (!collection) throw Exceptions.NotFound.Collection;
+          // add transcribaObject to that collection
+          return collection.transcribaObjects.add(this);
+        }
+      );
   };
 
   /**
