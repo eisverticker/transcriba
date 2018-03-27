@@ -16,7 +16,7 @@
 * email provider/account for sending registration mails among others.
 
 ### First step
-Install mongodb.
+Install and start mongodb.
 
 ### Second step
 Run `npm install` to download all the required packages.
