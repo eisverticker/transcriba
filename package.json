@@ -6,7 +6,7 @@
     "node": ">=4"
   },
   "scripts": {
-    "postinstall": "node postinstall.js",
+    "configurate": "node postinstall.js",
     "start": "node .",
     "lint": "eslint .",
     "lintfix": "eslint . --fix",
@@ -20,7 +20,7 @@
     "bluebird": "^3.5.1",
     "check-types": "^7.3.0",
     "compression": "^1.0.3",
-    "configurator7": "^1.0.0",
+    "configurator7": "^1.1.0",
     "cors": "^2.5.2",
     "download": "^5.0.2",
     "ejs-mate": "^2.3.0",

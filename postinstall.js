@@ -1,11 +1,11 @@
 #! /usr/bin/env node  --harmony
 
-var c7 = require('configurator7');
-var configJson = require('./install_files/server/config.json');
-var datasourcesJson = require('./install_files/server/datasources.json');
-var transcribaConfigJson = require('./install_files/server/transcriba-config.json');
+const c7 = require('configurator7');
+const configJson = require('./install_files/server/config.json');
+const datasourcesJson = require('./install_files/server/datasources.json');
+const transcribaConfigJson = require('./install_files/server/transcriba-config.json');
 
-var configFiles = {
+const configFiles = {
 
     "config": {
         data: configJson,
@@ -24,7 +24,7 @@ var configFiles = {
 
 };
 
-var questions = [{
+const questions = [{
     title: "Please provide the sender email address for verification mails among others",
     type: "email",
     required: true,
@@ -99,7 +99,7 @@ var questions = [{
     }
 }];
 
-var configurator = new c7.configurator(configFiles, questions);
+const configurator = new c7.configurator(configFiles, questions);
 
 configurator.run(function(err) {
     if (err) throw err;
