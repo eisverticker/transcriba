@@ -1,18 +1,16 @@
 'use strict';
 /**
- * Testing REST Endpoints
- * ==========================
- *
+ * E2E and Server Configuration Tests
  */
 
 /* eslint-disable no-undef, no-unused-vars */
 
-const app = require('../server/server.js');
+const app = require('./server.js');
 const request = require('request-promise');
 const Promise = require('bluebird');
-const baseUrl = 'http://0.0.0.0:3002';
+const baseUrl = 'http://localhost:3002';
 const apiUrl = baseUrl + '/api';
-const transcribaConfig = require('../server/transcriba-config.json');
+const transcribaConfig = require('./transcriba-config.json');
 // const baseUrl = app.get('url').replace(/\/$/, ''); // somehow does not work
 
 // Start server for later api testing
@@ -27,11 +25,11 @@ describe('server', function() {
     expect(app.get('view engine')).toEqual('ejs');
   });
 
-  it('should start the server', function(done) {
-    request.get(baseUrl, function(error, response) {
-      expect(response.statusCode).toBe(200);
-      done();
-    });
+  it('should start the server', async (done) => {
+    const response = await request.get(app.get('url'));
+    console.info("response",response);
+    expect(response.started).toBeDefined(200);
+    return;
   });
 });
 
