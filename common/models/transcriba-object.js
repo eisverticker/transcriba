@@ -201,7 +201,7 @@ module.exports = function(TranscribaObject) {
     ).then(
       (metadata) => {
         trMetadata = metadata;
-        return  TranscribaObject.create({
+        return TranscribaObject.create({
           'title': metadata.title,
           'sourceId': trObjectSource.id,
           'mainAuthor': metadata.mainAuthor,

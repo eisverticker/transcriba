@@ -7,7 +7,7 @@ const bodyParser = require('body-parser');
 const engine = require('ejs-mate');
 const transcribaConfig = require('./transcriba-config.json');
 
-const app = module.exports = loopback();
+const app = loopback();
 
 // use ejs-locals for all ejs templates:
 app.engine('ejs', engine);
@@ -22,7 +22,7 @@ app.use(bodyParser.urlencoded({extended: true}));
 
 app.use(loopback.token());
 
-app.start = function() {
+app.start = function(callback) {
   // start the web server
   return app.listen(function() {
     app.emit('started');
@@ -32,8 +32,11 @@ app.start = function() {
       const explorerPath = app.get('loopback-component-explorer').mountPath;
       console.log('Browse your REST API at %s%s', baseUrl, explorerPath);
     }
+    if (callback) callback(baseUrl);
   });
 };
+
+module.exports = app;
 
 // Bootstrap the application, configure models, datasources and middleware.
 // Sub-apps like REST API are mounted via boot scripts.

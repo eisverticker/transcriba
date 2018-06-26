@@ -100,7 +100,7 @@ module.exports = function(AppUser) {
       .then(
         (roles) => roles.map(role => role.name)
       ).then(
-        (roleNames) =>  roleNames.indexOf(roleName) !== -1
+        (roleNames) => roleNames.indexOf(roleName) !== -1
       );
   };
 
