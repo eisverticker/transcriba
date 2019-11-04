@@ -14,7 +14,7 @@
     "test": "jasmine"
   },
   "dependencies": {
-    "bcrypt": "^0.8.7",
+    "bcrypt": "^3.0.0",
     "bluebird": "^3.5.1",
     "compression": "^1.0.3",
     "configurator7": "^1.0.0",
@@ -29,11 +29,11 @@
     "loopback": "^3.16.2",
     "loopback-boot": "^2.6.5",
     "loopback-component-explorer": "^4.0.0",
-    "loopback-connector-mongodb": "^3.3.0",
+    "loopback-connector-mongodb": "^4.2.0",
     "marked": "^0.3.6",
     "request": "^2.76.0",
     "serve-favicon": "^2.0.1",
-    "sharp": "^0.18.0",
+    "sharp": "^0.23.2",
     "strong-error-handler": "^2.0.0",
     "xmlbuilder": "^9.0.4"
   },
