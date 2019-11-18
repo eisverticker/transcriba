@@ -1,14 +1,14 @@
 'use strict';
 
 /**
- * Convert TeiObjects into xml data
+ * Assign tags/labels to texts
  */
 class Tagger {
   constructor() {}
 
   /**
    * Analyse the given text for named entities
-   * and return the
+   * and return the tag
    * @param {string} text
    * @return Promise<Tag>
    */
