@@ -113,8 +113,10 @@ module.exports = function(AppUser) {
   AppUser.prototype.isEligibleVoter = function() {
     return this.hasRole('trusted')
       .then(
-        (isTrusted) =>
-          this.score >= AppUser.minimumRevisionVotingScore || isTrusted
+        (isTrusted) =>  (
+          isTrusted ||
+          this.score >= AppUser.minimumRevisionVotingScore
+        )
       );
   };
 
