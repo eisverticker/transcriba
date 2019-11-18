@@ -11,21 +11,35 @@
 * Documentation (To-Do)
 
 ## Installation
+
 ### Prerequisits
+
 * node.js must be installed
 * email provider/account for sending registration mails among others.
 
-### First step
-Install and start mongodb.
+### Install Dependencies
 
-### Second step
 Run `npm install` to download all the required packages.
-Then the preinstallation-script should be automatically run so follow the instructions.
 
-### Third step
-Your basic application should be ready, you may read the loopback documentation now
-or install a client angular2 application like my angular2-loopback-boilerplate.
-Also you can remove config.json and datasources.json from .gitignore and customize the postinstall.js script if you want so.
+### Configure
+
+Run the configuration assistant with:
+
+```bash
+npm run configurate
+```
+
+and follow the instructions.
+
+### Start local database
+
+Install mongodb or start with docker-compose:
+
+```bash
+docker-compose up -d
+```
+
+Your basic application should be ready.
 
 
 
