@@ -11,8 +11,7 @@
     "lint": "eslint .",
     "lintfix": "eslint . --fix",
     "posttest": "npm run lint && nsp check",
-    "test": "jasmine",
-    "fixmongo": "sudo mongod --repair; sudo service mongod start"
+    "test": "jasmine"
   },
   "dependencies": {
     "bcrypt": "^3.0.0",
