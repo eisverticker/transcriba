@@ -8,8 +8,8 @@
 /* eslint-disable no-undef, no-unused-vars */
 
 const app = require('../server/server.js');
+const urlJoin = require('url-join');
 const request = require('request-promise');
-const Promise = require('bluebird');
 const baseUrl = 'http://0.0.0.0:3002';
 const apiUrl = baseUrl + '/api';
 const transcribaConfig = require('../server/transcriba-config.json');
@@ -41,7 +41,7 @@ describe('server', function() {
 describe('infoPage', function() {
   transcribaConfig.dummies.pages.forEach(function(value) {
     it('should load InfoPage ' + value, function(done) {
-      request.get(apiUrl + '/InfoPages/' + value + '/parsed',
+      request.get(`${apiUrl}/InfoPages/${value}/parsed`,
         function(error, response, body) {
           let bodyObj = JSON.parse(body);
           expect(response.statusCode).toBe(200);
@@ -67,7 +67,7 @@ describe('logged in user', function() {
   beforeAll(function(done) {
     request.post(
       {
-        url: baseUrl + '/api/AppUsers/login',
+        url: `${baseUrl}/api/AppUsers/login`,
         body: {
           email: transcribaConfig.admin.email,
           password: transcribaConfig.admin.password,
@@ -88,13 +88,11 @@ describe('logged in user', function() {
           token = user.id;
         }
       },
-      (error) => done.fail('login request: error occured during initialisation')
+      (error) => done.fail(error)
     ).then(
       // make sure admin is not busy in order that we can do some transcription tests
       () => request.post(
-        apiUrl +
-       '/TranscribaObjects/free' +
-       '?access_token=' + token
+        urlJoin(apiUrl, `/TranscribaObjects/free?access_token=${token}`)
       )
     ).then(
       () => done()
@@ -103,7 +101,7 @@ describe('logged in user', function() {
 
   it('should have admin role', function(done) {
     request.get(
-      apiUrl + '/AppUsers/' + userId + '/roles?access_token=' + token,
+      `${apiUrl}/AppUsers/${userId}/roles?access_token=${token}`,
       {json: true}
     ).then(
       (roles) => {
@@ -117,7 +115,7 @@ describe('logged in user', function() {
 
   it('should run a transcription', function(done) {
     let originalTrObject;
-    request.get(apiUrl + '/Sources/count?access_token=' + token)
+    request.get(`${apiUrl}/Sources/count?access_token=${token}`)
       .then(
         (numOfSources) => {
           // stage 1: is a manuscript source configured?
