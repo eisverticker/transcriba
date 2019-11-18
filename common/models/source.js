@@ -1,67 +1,78 @@
 'use strict';
 
+const _ = require('lodash');
+const request = require('request-promise');
+
 module.exports = function(Source) {
   Source.afterRemote('replaceOrCreate', function(ctx, source, next) {
-    var Collection = Source.app.models.Collection;
-
-    var sourceName = source.title;
-
+    const sourceName = source.title;
+    const Collection = Source.app.models.Collection;
     //
-    // To automatically add a Collection with the same name as the source
-    // you can write your lines here
+    // automatically create a Collection with the same name as the source
     //
-    Collection.create({
+    source.collection.create({
       'name': sourceName,
       'description': 'Automatically generated collection \
       of objects which were imported from ' + sourceName,
       'public': true,
       'locked': true,
-    }, function(err, collection) {
-      if (err) return next(err);
-
-      source.collectionId = collection.id;
-      source.save();
-
-      next();
-    });
+    }).then(
+      (sourceCollection) => {
+        return Collection.findOne({where: {name: 'root'}}).then(
+          (rootCollection) => rootCollection.collections.add(sourceCollection)
+        ).then(
+          () => next()
+        );
+      },
+      (err) => next(err)
+    );
   });
 
   /**
-   * Returns a few details of a given source
-   * (because some users don't have rights to access the full dataset)
-   * @param {string} id
-   * @callback requestCallback
-   * @param {string} err
-   * @param {object} sourceSummary
+   * Get public properties of a source
+   * @param {Function(Error, object)} callback
    */
-  Source.summary = function(id, callback) {
-    Source.findById(id, function(err, source) {
-      if (err) return callback(err);
-      if (!source) return callback('source not found');
 
-      callback(null,
-        {
-          'id': source.id,
-          'title': source.title,
-          'info_url': source.info_url,
-          'logo_url': source.logo_url,
-        }
-      );
-    });
+  Source.prototype.summary = function() {
+    const source = this;
+    return Promise.resolve(
+      _.pick(source, ['id', 'title', 'info_url', 'logo_url'])
+    );
+  };
+
+  /**
+   * Load api meta data from a TranscribaJSON2 compatible server
+   * TODO: type checking?
+   * @param {string} apiUrl
+   */
+  Source.metadata = function(url) {
+    return request.get({
+      'url': url,
+      'json': true
+    }).then(
+      (body) => _.pick(body, [
+        'name',
+        'apiVersion',
+        'description',
+        'manuscriptUrl',
+        'browseUrl',
+        'linkUrl',
+        'capabilities'
+      ])
+    );
   };
 
   Source.remoteMethod(
-    'summary',
+    'metadata',
     {
-      description: 'Returns some details for a given source, \
-      which are not hidden',
+      description: 'Imports TranscribaJSON metadata from url',
       accepts: [
-        {arg: 'id', type: 'string', required: true},
+        {arg: 'url', type: 'string', required: true},
       ],
       returns: [
-        {arg: 'details', type: 'object', root: true},
+        {arg: 'metadata', type: 'object', root: true},
       ],
-      http: {path: '/:id/summary', verb: 'get'},
+      http: {path: '/metadata', verb: 'get'},
       isStatic: true,
     }
   );

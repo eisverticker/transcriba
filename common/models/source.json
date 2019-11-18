@@ -11,6 +11,11 @@
       "required": true,
       "default": "unknown"
     },
+    "root_url": {
+      "type": "string",
+      "required": true,
+      "default": "none"
+    },
     "url": {
       "type": "string",
       "required": true,
@@ -45,7 +50,7 @@
   "validations": [],
   "relations": {
     "collection": {
-      "type": "belongsTo",
+      "type": "hasOne",
       "model": "Collection",
       "foreignKey": ""
     }
@@ -77,5 +82,24 @@
       "property": "summary"
     }
   ],
-  "methods": {}
+  "methods": {
+    "prototype.summary": {
+      "accepts": [],
+      "returns": [
+        {
+          "arg": "filteredSource",
+          "type": "object",
+          "root": true,
+          "description": "Source model without secret properties"
+        }
+      ],
+      "description": "Get public properties of a source",
+      "http": [
+        {
+          "path": "/summary",
+          "verb": "get"
+        }
+      ]
+    }
+  }
 }

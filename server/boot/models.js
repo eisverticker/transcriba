@@ -1,138 +1,71 @@
 'use strict';
 
-var transcribaConfig = require('../transcriba-config.json');
+const Promise = require('bluebird');
+const transcribaConfig = require('../transcriba-config.json');
+const Exceptions = require('../../common/exceptions.js');
 
 /**
  * This script has several things to do:
  * -----------------------------------------
+ *
  * First create all roles from server/transcriba-config.json (rbac.roles)
  *  with the given options
  * Then create a new user and add administrator the last given role to him
  * (it's recommended to call the last role administrator because acls are
  * usually refer to this role name)
+ *
  */
 module.exports = function(server) {
-  var User = server.models.AppUser;
-  var Role = server.models.Role;
-  var RoleMapping = server.models.RoleMapping;
-
-  var roles = transcribaConfig.rbac.roles.slice();
+  const AppUser = server.models.AppUser;
+  const Collection = server.models.Collection;
+  const roleNames = transcribaConfig.rbac.roles.slice(); // copy roles
 
   // ensure that administrator is the last role
-  if (roles.indexOf('administrator') === -1) {
-    roles.push('administrator');
+  if (roleNames.indexOf('administrator') === -1) {
+    roleNames.push('administrator');
   }
 
-  if (roles.indexOf('administrator') !== roles.length - 1) {
-    throw 'administrator role is not the last role';
+  if (roleNames.indexOf('administrator') !== roleNames.length - 1) {
+    throw Exceptions.WrongRoleOrder;
   }
-  //
 
-  var options = {
-    isHierachical: transcribaConfig.rbac.hierachical,
-  };
-
-  /**
-   * Create the models for the given roleNames
-   */
-  var createRoles = function(roles, options, previousRoleObj, callback) {
-    if (roles.length > 0) {
-      var roleName = roles.shift();
-      // console.log(roleName);
-
-      Role.findOrCreate({
-        where: {
-          'name': roleName,
-        },
-      }, {
-        'name': roleName,
-      }, function(err, roleObj) {
-        if (err) callback(err);
-
-        if (previousRoleObj !== null && options.isHierachical) {
-          // console.log(previousRoleObj.principals);
-          var  principal = {
-            principalType: RoleMapping.ROLE,
-            principalId: roleObj.id,
-          };
-
-          previousRoleObj.principals.findOne(principal,
-            function(err, mapping) {
-              if (err) return callback(err);
-
-              if (!mapping) {
-                previousRoleObj.principals.create(principal, function(err) {
-                  if (err) return callback(err);
-
-                  return createRoles(roles, options, roleObj, callback);
-                });
-              } else {
-                return createRoles(roles, options, roleObj, callback);
-              }
-            }
-          );
-        } else {
-          createRoles(roles, options, roleObj, callback);
-        }
-      });
-    } else {
-      callback(null, previousRoleObj);
-    }
-  };
-
-  createRoles(roles, options, null, function(err, adminRole) {
-    if (err) throw err;
-
-    User.findOne({
-      where: {
-        'username': transcribaConfig.admin.username,
-      },
-    }, function(err, user) {
-      if (err) throw err;
-
-      if (!user) {
-        /*
-         * Create Administrator
-         */
-        User.create({
+  // Create roles, bot and admin
+  // FIXME: this is being executed on every server access
+  //  and thus creates great overhead
+  Promise.join(
+    AppUser.createRoles(roleNames), // returns last role (admin role)
+    AppUser.findOne(
+      {where: {'username': transcribaConfig.admin.username}}
+    ),
+    AppUser.findOne(
+      {where: {'username': transcribaConfig.bot.username}}
+    ),
+    (adminRole, adminUser, botUser) => {
+      if (adminUser || botUser) { // installation was already run
+        return null;
+      }
+      // create admin and bot and assign roles
+      return Promise.join(
+        AppUser.create({
           username: transcribaConfig.admin.username,
           email: transcribaConfig.admin.email,
           password: transcribaConfig.admin.password,
           emailVerified: true,
-        }, function(err, user) {
-          if (err) throw err;
-
-          User.setRole(user.id, adminRole.name, function(err) {
-            if (err) throw err;
-
-            console.log(
-              'Administrator ' + user.username + ' was successfully created'
-            );
-          });
-        });
-
-        /*
-         * Create Bot user
-         */
-        User.create({
+        }),
+        AppUser.create({
           username: transcribaConfig.bot.username,
           email: transcribaConfig.bot.email,
           password: transcribaConfig.bot.password,
           emailVerified: true,
-        }, function(err, user) {
-          if (err) throw err;
+        }),
+        (admin, bot) => Promise.all([
+          admin.setRole(adminRole.name),
+          bot.setRole(transcribaConfig.rbac.defaultRole)
+        ])
+      );
+    }
+  ); // end join
 
-          User.setRole(
-            user.id,
-            transcribaConfig.rbac.defaultRole,
-            function(err) {
-              if (err) throw err;
-
-              console.log('Bot ' + user.username + ' was successfully created');
-            }
-          );
-        });
-      }
-    });
-  });// end of create roles call
+  // Create root Collection if not found
+  Collection.findOrCreate({where: {name: 'root'}}, {name: 'root'});
 };

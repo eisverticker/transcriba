@@ -37,7 +37,10 @@
   },
   "RoleMapping": {
     "dataSource": "mongo",
-    "public": false
+    "public": false,
+    "options": {
+      "strictObjectIDCoercion": true
+    }
   },
   "Role": {
     "dataSource": "mongo",

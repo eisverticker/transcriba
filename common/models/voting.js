@@ -44,8 +44,12 @@ module.exports = function(Voting) {
           rev.approved = true;
           rev.save();
 
-          // update object state
+          // # update object state
           obj.status = 'free';
+          // ## Bring object to the next stage if necessary
+          if (obj.stage < 1) {
+            obj.stage = 1;
+          }
           obj.save();
 
           // update score
@@ -58,7 +62,7 @@ module.exports = function(Voting) {
     });
   };
 
-  var votingModels = {
+  const votingModels = {
     'Comment': {
       'candidates': ['like', 'dislike', 'unwanted'],
       voteValidator: function(context, instance, callback) {
@@ -87,8 +91,8 @@ module.exports = function(Voting) {
     'Revision': {
       'candidates': ['accept', 'refuse'],
       voteValidator: function(context, instance, callback) {
-        var User = Voting.app.models.AppUser;
-        var userId = context.req.accessToken.userId;
+        const User = Voting.app.models.AppUser;
+        const userId = context.req.accessToken.userId;
 
         Voting.app.models.Revision.findById(instance.objectId,
           function(err, rev) {
@@ -107,7 +111,7 @@ module.exports = function(Voting) {
                     function(err, isAllowed) {
                       if (err) return callback(err);
 
-                      var invalid = isAllowed == true ?
+                      const invalid = isAllowed == true ?
                         null : 'user is not permitted to vote';
 
                       return callback(null, invalid);
@@ -118,8 +122,8 @@ module.exports = function(Voting) {
           });
       },
       onVote: function(model, context, instance, callback) {
-        var User = model.app.models.AppUser;
-        var userId = context.req.accessToken.userId;
+        const User = model.app.models.AppUser;
+        const userId = context.req.accessToken.userId;
         model.outcome(instance.objectType, instance.objectId,
           function(err, counts) {
             if (err) return callback(err);
@@ -166,7 +170,7 @@ module.exports = function(Voting) {
       function(err, eligibleVoters) {
         if (err) return callback(err);
 
-        var votesNeeded;
+        let votesNeeded;
 
         if (eligibleVoters < 20) {
           votesNeeded = 2;
@@ -181,10 +185,10 @@ module.exports = function(Voting) {
   };
 
   Voting.outcome = function(objectType, objectId, callback) {
-    var syncCountdown = votingModels[objectType].candidates.length;
-    var result = {};
+    const syncCountdown = votingModels[objectType].candidates.length;
+    let result = {};
 
-    var count = function(vote, cb) {
+    const count = function(vote, cb) {
       Voting.count({
         'objectType': objectType,
         'objectId': objectId,
@@ -244,7 +248,7 @@ module.exports = function(Voting) {
    *    - objectId must be a entity of the objectType model (todo)
    */
   Voting.beforeRemote('vote', function(context, unused, next) {
-    var data = context.args.data;
+    const data = context.args.data;
 
     // check if required fields were delivered
     if (
@@ -257,7 +261,7 @@ module.exports = function(Voting) {
 
     // # Step 1
     // Require user to be authorized
-    var userId = context.req.accessToken.userId;
+    const userId = context.req.accessToken.userId;
     if (!userId) {
       return next(new Error('authorisation required'));
     }

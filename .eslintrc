@@ -5,10 +5,12 @@
   },
   "rules": {
     "no-unused-vars": "warn",
+    "no-var": "error",
     "no-undef": "warn",
     "strict": "error",
     "array-bracket-spacing": "warn",
     "arrow-spacing": "warn",
-    "camelcase": "error"
+    "camelcase": "error",
+    "comma-dangle": "off"
   }
 }

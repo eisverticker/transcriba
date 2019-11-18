@@ -1,210 +1,234 @@
 'use strict';
 
-const request = require('request');
+const request = require('request-promise');
 const download = require('download');
+const _ = require('lodash');
 const teiBuilder = require('../libs/tei-builder.js');
 const Promise = require('bluebird');
+const unique = require('array-unique');
+const checkTypes = require('check-types');
 
-var fs = require('fs');
-var fsExtra = require('fs-extra');
-var sharp = require('sharp');
-var sizeOf = require('image-size');
-var transcribaConfig = require('../../server/transcriba-config.json');
+const fs = Promise.promisifyAll(require('fs'));
+const fsExtra = Promise.promisifyAll(require('fs-extra'));
+const sharp = require('sharp');
+const sizeOf = Promise.promisify(require('image-size'));
+const transcribaConfig = require('../../server/transcriba-config.json');
+const Exceptions = require('../exceptions.js');
 
-// Promisify by Bluerbird
-Promise.promisifyAll(sharp);
+const ImportEntity = require('../interfaces/import-entity.js');
+const ObjectMetadata = require('../interfaces/object-metadata.js');
 
-module.exports = function(Obj) {
-  Obj.tileSize = 256;
+module.exports = function(TranscribaObject) {
+  TranscribaObject.tileSize = transcribaConfig.viewer.tileSize;
+  TranscribaObject.highestStage = 3;
+  // TODO: add to transcribaConfig
+  TranscribaObject.thumbnailDimensions = {
+    ...transcribaConfig.media.thumbnail
+  };
+
+  TranscribaObject.prototype.publishGeneratedTags = function() {
+    this.publicTags = unique(this.publicTags.concat(this.generatedTags));
+    this.save();
+  };
+
+  TranscribaObject.prototype.generateNamedEntityTags = function() {
+    // TODO
+    Promise.resolve();
+  };
 
   /**
    * Generates all image files like thumbnails, tiles, ... which are
    * being used by the transcriba application
    */
-  Obj.generateImages = function(data, id, callback) {
-
+  TranscribaObject.prototype.generateImages = function(imageBlob) {
     const scaleData = [
       {
         outputFile: '/overview.jpg',
         width: undefined,
-        height: 512,
-      },
-      {
-        outputFile: '/small.jpg',
-        width: undefined,
-        height: 128,
+        height: 512
       },
       {
         outputFile: '/thumbnail.jpg',
-        width: 200,
-        height: 200,
-      },
+        width: TranscribaObject.thumbnailDimensions.width,
+        height: TranscribaObject.thumbnailDimensions.width
+      }
     ];
 
-    const saveOriginal = sharp(data)
-      .toFile('imports/' + id + '/raw.jpg');
+    const saveOriginal = sharp(imageBlob)
+      .toFile('imports/' + this.id + '/raw.jpg');
 
     const generateScaledImages = Promise.map(scaleData,
       (item) => {
-        return sharp(data).resize(item.width, item.height)
-          .toFile('imports/' + id + item.outputFile);
+        return sharp(imageBlob).resize(item.width, item.height)
+          .toFile('imports/' + this.id + item.outputFile);
       }
     );
 
-    const generateTiles = sharp(data)
+    const generateTiles = sharp(imageBlob)
       .tile({
-        size: Obj.tileSize,
-        layout: 'google',
+        size: TranscribaObject.tileSize,
+        layout: 'google'
       })
-      .toFile('imports/' + id + '/tiled');
+      .toFile('imports/' + this.id + '/tiled');
 
     // Sync all
-    Promise.all([
+    return Promise.all([
       saveOriginal,
       generateScaledImages,
-      generateTiles,
-    ]).then(
-      () => callback(null),
-      (err) => callback(err)
-    );
+      generateTiles
+    ]);
   };
 
   /**
    * Creates the first empty revision made by bot user
    */
-  Obj.createFirstRevision = function(obj, callback) {
-    var User = Obj.app.models.AppUser;
+  TranscribaObject.prototype.createFirstRevision = function() {
+    const User = TranscribaObject.app.models.AppUser;
 
-    User.findOne({
+    return User.findOne({where: {'username': transcribaConfig.bot.usernam}})
+      .then(
+        (user) => this.revisions.create({
+          createdAt: new Date(),
+          ownerId: user.id,
+          metadata: {},
+          content: {
+            'type': 'root',
+            'properties': {},
+            'children': [],
+            'isDirty': false,
+          },
+          published: true,
+          approved: true
+        })
+      );
+  };
+
+  /**
+   * Checks if the object from the given source is already in the database
+   * @return {Promise}
+   */
+  TranscribaObject.isImported = function(externalId, sourceId) {
+    return TranscribaObject.findOne({
       where: {
-        'username': transcribaConfig.bot.username,
-      },
-    }, function(err, user) {
-      if (err) return callback(err);
+        'externalID': externalId,
+        'sourceId': sourceId,
+      }
+    }).then(
+      (trObject) => trObject != null
+    );
+  };
 
-      obj.revisions.create({
-        createdAt: new Date(),
-        ownerId: user.id,
-        metadata: {},
-        content: {
-          'type': 'root',
-          'properties': {},
-          'children': [],
-          'isDirty': false,
-        },
-        published: true,
-        approved: true,
-      }, function(err, revision) {
-        if (err) return callback(err);
+  TranscribaObject.importMetadata = function(source, externalId) {
+    return request(source.url.replace('{id}', externalId), {json: true})
+      .then(
+        // check format of received metadata object
+        (metadata) => {
+          if (!checkTypes.like(metadata, ObjectMetadata)) {
+            throw Exceptions.WrongFormat;
+          }
+          console.log('metadata', metadata);
+          return metadata;
+        }
+      );
+  };
 
-        return callback(null, revision);
-      });
-    });
+  /**
+   * Downloads images from remote server, converts them and saves them
+   * to our server
+   */
+  TranscribaObject.importImages = function(url, trObject) {
+    return Promise.join(
+      download(url),
+      fsExtra.ensureDirAsync('imports/' + trObject.id),
+      (imageBlob) => trObject.generateImages(imageBlob)
+    );
+  };
+
+  /**
+   * Every Source has its own collection where only objects imported from
+   * this source should be stored. This function adds an object to the corresponding
+   * collection
+   */
+  TranscribaObject.prototype.addToSourceCollection = function() {
+    return this.source.get()
+      .then(
+        (source) => source.collection.get()
+      ).then(
+        (collection) => {
+          if (!collection) throw Exceptions.NotFound.Collection;
+          // add transcribaObject to that collection
+          return collection.transcribaObjects.add(this);
+        }
+      );
+  };
+
+  /**
+   * Undo changes made during import
+   * to recover the previous state
+   */
+  TranscribaObject.abortImport = function(trObject) {
+    return trObject.destroy();
   };
 
   /**
    * Method for the REST import endpoint.
    * It is being used to create TranscribaObjects from
    * external Sources
+   * NOTE: This method provides transactional behaviour to some extend
    */
-  Obj.import = function(data, callback) {
-    var Discussion = Obj.app.models.Discussion;
-    var Source = Obj.app.models.Source;
+  TranscribaObject.import = function(importParameters) {
+    if (!checkTypes.like(importParameters, ImportEntity)) {
+      throw Exceptions.WrongFormat;
+    }
+    const Source = TranscribaObject.app.models.Source;
+    const externalId = importParameters.externalId;
+    const sourceId = importParameters.sourceId;
 
-    // ensure that (externalID, sourceId) is unique
-    Obj.findOne({
-      where: {
-        externalID: data.externalId,
-        sourceId: data.sourceId,
-      },
-    }, function(err, object) {
-      if (err) return callback(err);
-      if (object) return callback('object was already imported');
+    // these will be loaded in promise chain
+    let trObject, trObjectSource, trMetadata;
 
-      // alter voting if the user already voted in the past
-      Source.findOne({
-        'where': {
-          id: data.sourceId,
-        },
-      }, function(err, source) {
-        if (err) return callback(err);
-        if (!source) return callback('source does not exist');
-
-        request(source.url.replace('{id}', data.externalId),
-          function(err, response, body) {
-            if (err) return callback(err);
-            if (response.statusCode !== 200)
-              return callback('wrong status code');
-
-            try {
-              var objectMetadata = JSON.parse(body);
-
-              Discussion.create({
-                title: 'transcriba',
-              }, function(err, discussion) {
-                if (err) return callback(err);
-
-                // create object to get a new id
-                Obj.create({
-                  'title': objectMetadata.title,
-                  'sourceId': source.id,
-                  'discussionId': discussion.id,
-                  'externalID': data.externalId,
-                  'createdAt': new Date(),
-                  'released': true,
-                }, function(error, obj) {
-                  if (error) return callback(error);
-                  if (obj == null) return callback("couldn't create object");
-
-                  download(
-                    objectMetadata.file_url.replace('{file}',
-                      objectMetadata.resolutions.max)
-                  )
-                    .then(
-                      (data) => {
-                        // ensure that all needed directories do exist
-                        fsExtra.ensureDir('imports/' + obj.id, function(err) {
-                          if (err) return callback(err);
-
-                          // create thumbnails, tiles and more
-                          Obj.generateImages(data, obj.id, function(err) {
-                            if (err) return callback(err);
-
-                            // create inital revision (user = bot)
-                            Obj.createFirstRevision(obj, function(err) {
-                              if (err) return callback(err);
-
-                              // automatically add to source related collection
-                              source.collection(function(err, collection) {
-                                if (err) return callback(err);
-
-                                /**
-             * currently not available because of relation problem
-             * see https://github.com/eisverticker/transcriba-backend/issues/1
-             */
-                                // add transcribaObject to that collection
-                                /* collection.transcribaObjects.add(obj, function(err){
-              if(err) return callback(err);
-              callback(null, obj.id );
-            }) */
-                                callback(null, obj.id);
-                              });
-                            });
-                          });
-                        });
-                      }
-                    );// end download
-                });
-              });
-            } catch (error) {
-              callback('external ressource not found');
-            }
-          });
-      });
-    });
+    return Promise.join(
+      TranscribaObject.isImported(externalId, sourceId),
+      Source.findOne({'where': {id: sourceId}}),
+      (isImported, source) => {
+        if (isImported) throw Exceptions.Duplicate;
+        trObjectSource = source;
+        return TranscribaObject.importMetadata(source, externalId);
+      }
+    ).then(
+      (metadata) => {
+        trMetadata = metadata;
+        return  TranscribaObject.create({
+          'title': metadata.title,
+          'sourceId': trObjectSource.id,
+          'mainAuthor': metadata.mainAuthor,
+          'externalID': externalId,
+          'createdAt': new Date(),
+          'released': true,
+        });
+      }
+    ).then(
+      (trObj) => {
+        trObject = trObj;
+        return TranscribaObject.importImages(trMetadata.imageUrl, trObject);
+      }
+    ).catch(
+      // Abort Transaction if critical image import failed
+      (error) => TranscribaObject.abortImport(trObject).then(
+        () => Promise.reject(error)
+      )
+    ).then(
+      // finish import by taking care of related models
+      () => Promise.join(
+        trObject.discussion.create({title: 'transcriba'}),
+        trObject.addToSourceCollection(),
+        trObject.createFirstRevision(),
+        () => trObject.id
+      )
+    );
   };
 
-  Obj.remoteMethod(
+  TranscribaObject.remoteMethod(
     'import',
     {
       description:
@@ -220,126 +244,107 @@ module.exports = function(Obj) {
     }
   );
 
-  Obj.disableRemoteMethodByName('create', true);
-
-  var printImage = function(path, file, imageType, callback) {
-    fs.stat(path, function(err, stats) {
-      if (err) return callback(err);
-      if (!stats.isDirectory()) return callback('dir does not exist');
-
-      fs.readFile(path + file, (err, data) => {
-        if (err) return callback(err);
-
-        return callback(null, data, 'image/' + imageType);
-      });
-    });
+  /**
+   * Image Output
+   * @private
+   */
+  TranscribaObject.printImage = function(path, file, imageType) {
+    return fs.statAsync(path)
+      .then(
+        (stats) => {
+          if (!stats.isDirectory()) throw Exceptions.NotFound.Directory;
+          return fs.readFileAsync(path + file).catch(
+            (_err) => {
+              // convert error type
+              throw Exceptions.NotFound.Image;
+            }
+          );
+        }
+      )
+      .then(
+        (data) => [data, 'image/' + imageType]
+      );
   };
-
-  Obj.tiles = function(id, zoom, x, y, callback) {
-    var path = 'imports/' + id + '/tiled/';
-    var file = zoom + '/' + y + '/' + x + '.jpg';
-
-    printImage(path, file, 'jpeg', callback);
-  };
-
-  Obj.remoteMethod(
-    'tiles',
-    {
-      description: 'Load a tile of the image from server.',
-      accepts: [
-        {arg: 'id', type: 'string', required: true},
-        {arg: 'zoom', type: 'number', required: true},
-        {arg: 'x', type: 'number', required: true},
-        {arg: 'y', type: 'number', required: true},
-      ],
-      returns: [
-        {arg: 'body', type: 'file', root: true},
-        {arg: 'Content-Type', type: 'string', http: {target: 'header'}},
-      ],
-      http: {path: '/:id/tiles/:zoom/:x/:y', verb: 'get'},
-      isStatic: true,
-    }
-  );
-
-  Obj.thumbnail = function(id, callback) {
-    var path = 'imports/' + id + '/';
-    var file = 'thumbnail.jpg';
-
-    printImage(path, file, 'jpeg', callback);
-  };
-
-  Obj.remoteMethod(
-    'thumbnail',
-    {
-      description: 'Load a thumbnail of the image',
-      accepts: [
-        {arg: 'id', type: 'string', required: true},
-      ],
-      returns: [
-        {arg: 'body', type: 'file', root: true},
-        {arg: 'Content-Type', type: 'string', http: {target: 'header'}},
-      ],
-      http: {path: '/:id/thumbnail', verb: 'get'},
-      isStatic: true,
-    }
-  );
-
-  Obj.overview = function(id, callback) {
-    var path = 'imports/' + id + '/';
-    var file = 'overview.jpg';
-
-    printImage(path, file, 'jpeg', callback);
-  };
-
-  Obj.remoteMethod(
-    'overview',
-    {
-      description: 'Load a bigger sized thumbnail of the image',
-      accepts: [
-        {arg: 'id', type: 'string', required: true},
-      ],
-      returns: [
-        {arg: 'body', type: 'file', root: true},
-        {arg: 'Content-Type', type: 'string', http: {target: 'header'}},
-      ],
-      http: {path: '/:id/overview', verb: 'get'},
-      isStatic: true,
-    }
-  );
-
-  Obj.dimensions = function(id, callback) {
-    var path = 'imports/' + id + '/';
-    var file = 'raw.jpg';
-
-    var dimensions = sizeOf(path + file, 'jpeg', callback);
-
-    callback(null, dimensions.width, dimensions.height);
-  };
-
-  Obj.remoteMethod(
-    'dimensions',
-    {
-      description: 'Load height and width of the image',
-      accepts: [
-        {arg: 'id', type: 'string', required: true},
-      ],
-      returns: [
-        {arg: 'width', type: 'number'},
-        {arg: 'height', type: 'number'},
-      ],
-      http: {path: '/:id/dimensions', verb: 'get'},
-      isStatic: true,
-    }
-  );
 
   /**
-   * Returns number of zoomsteps which are possible
+   * Print a single tile of the image (tiled rendering)
+   * @param {number} zoom desired zoom step of the image
+   * @param {number} x tile coordinate on x-axis
+   * @param {number} y tile coordinate on y-axis
+   * @param {Function(Error, )} callback
    */
-  Obj.zoomsteps = function(id, callback) {
+
+  TranscribaObject.prototype.tiles = function(zoom, x, y) {
+    const path = 'imports/' + this.id + '/tiled/';
+    const file = zoom + '/' + y + '/' + x + '.jpg';
+    const imageType = 'png';
+
+    return TranscribaObject.printImage(path, file, 'jpeg')
+      // catch errors and return a blank image as correction
+      .catch(
+        (_error) => sharp({
+          create: {
+            width: transcribaConfig.viewer.tileSize,
+            height: transcribaConfig.viewer.tileSize,
+            channels: 4,
+            background: {r: 255, g: 255, b: 255, alpha: 128}
+          }
+        })
+          .png()
+          .toBuffer()
+          .then(
+            (data) => [data, 'image/' + imageType]
+          )
+      );
+  };
+
+  /**
+   * Print thumbnail image
+   * @return {Promise}
+   */
+  TranscribaObject.prototype.thumbnail = function() {
+    const path = 'imports/' + this.id + '/';
+    const file = 'thumbnail.jpg';
+
+    return TranscribaObject.printImage(path, file, 'jpeg');
+  };
+
+  /**
+   * Print thumbnail image
+   * @param {Function(Error, )} callback
+   */
+  TranscribaObject.prototype.overview = function() {
+    const path = 'imports/' + this.id + '/';
+    const file = 'overview.jpg';
+
+    return TranscribaObject.printImage(path, file, 'jpeg');
+  };
+
+  /**
+   * Load dimensions of the original manuscript image
+   * @param {Function(Error, number, number)} callback
+   */
+
+  TranscribaObject.prototype.dimensions = function() {
+    const path = 'imports/' + this.id + '/';
+    const file = 'raw.jpg';
+
+    return sizeOf(path + file)
+      .then(
+        (dimensions) => [dimensions.width, dimensions.height]
+      );
+  };
+
+  /**
+   * Number of zoomsteps for tiled rendering
+   * @param {Function(Error, number)} callback
+   */
+
+  TranscribaObject.prototype.zoomsteps = function() {
     // integer logarithm (base 2)
     function intLog2(value) {
-      var max = 1;
-      var i = 0;
+      let max = 1;
+      let i = 0;
 
       while (value > max) {
         max = max * 2;
@@ -348,290 +353,207 @@ module.exports = function(Obj) {
       return i;
     }
 
-    Obj.dimensions(id, function(err, width, height) {
-      if (err) return callback(err);
-
-      var greatestSideLength, numOfTiles;
-
-      // we are only interessted in the greatest of both sides of the image
-      greatestSideLength = Math.max(width, height);
-      // now we need to know how many tiles are needed to cover the greatest side
-      numOfTiles = greatestSideLength / Obj.tileSize;
-      // log2 of the previous value +1 is the number of zoom steps
-      callback(null, intLog2(numOfTiles) + 1);
-    });
+    return this.dimensions().then(
+      (dimensions) => {
+        const width = dimensions[0];
+        const height = dimensions[1];
+        let greatestSideLength, numOfTiles;
+        // we are only interessted in the greatest of both sides of the image
+        greatestSideLength = Math.max(width, height);
+        // now we need to know how many tiles are needed to cover the greatest side
+        numOfTiles = greatestSideLength / TranscribaObject.tileSize;
+        // log2 of the previous value + 1 is the number of zoom steps
+        return intLog2(numOfTiles) + 1;
+      }
+    );
   };
 
-  Obj.remoteMethod(
-    'zoomsteps',
-    {
-      description: 'Load num of zoom steps',
-      accepts: [
-        {arg: 'id', type: 'string', required: true},
-      ],
-      returns: [
-        {arg: 'width', type: 'number', root: true},
-      ],
-      http: {path: '/:id/zoomsteps', verb: 'get'},
-      isStatic: true,
-    }
-  );
+  /**
+   * Get TranscribaObject revision chronic
+   * @return {Promise<array>}
+   */
+  TranscribaObject.prototype.chronic = function() {
+    return this.revisions({
+      order: 'createdAt desc',
+      include: 'owner'
+    }).then(
+      // eliminate unnecessary properties
+      (revisions) => revisions.map(
+        (currentRevision) => {
+          // load owner to get username
+          const owner = currentRevision.owner();
+          let chronicItem = _.pick(
+            currentRevision,
+            ['id', 'createdAt', 'username', 'published', 'approved']
+          );
+          chronicItem.username = owner.username;
+          return chronicItem;
+        }
+      )
+    );
+  };
 
-  Obj.chronic = function(id, callback) {
-    Obj.findById(id, function(err, obj) {
-      if (err) return callback(err);
-      if (obj == null) return callback('cannot find object');
-
-      obj.revisions({
+  /**
+   * Get latest revision of the TranscribaObject
+   * @returns {Promise<Revision>}
+   */
+  TranscribaObject.prototype.latest = function() {
+    // find the latest revision which is approved (stable)
+    return this.revisions(
+      {
         order: 'createdAt desc',
-        include: 'owner',
-      }, function(err, rev) {
-        if (err) return callback(err);
-        if (!rev || rev.length == 0) return callback('no revision found');
-
-        return callback(null, rev.map(function(revision) {
-          var owner = revision.owner();
-          return {
-            'id': revision.id,
-            'createdAt': revision.createdAt,
-            'username': owner.username,
-            'published': revision.published,
-            'approved': revision.approved,
-          };
-        }));
-      });
-    });
+        limit: 1
+      }
+    ).then(
+      // reduce to exact one revision
+      (revisions) => {
+        if (revisions.length === 0) throw Exceptions.NotFound.Revision;
+        return revisions[0];
+      }
+    );
   };
 
-  Obj.remoteMethod(
-    'chronic',
-    {
-      description: 'Load the revision chronic of the object',
-      accepts: [
-        {arg: 'id', type: 'string', required: true},
-      ],
-      returns: [
-        {arg: 'chronic', type: 'array', root: true},
-      ],
-      http: {path: '/:id/chronic', verb: 'get'},
-      isStatic: true,
-    }
-  );
-
-  Obj.latest = function(id, callback) {
-    Obj.findById(id, function(err, obj) {
-      if (err) return callback(err);
-      if (obj == null) return callback('cannot find object');
-
-      obj.revisions({
+  /**
+   * Get latest stable revision of the TranscribaObject
+   * @returns {Promise<Revision>}
+   */
+  TranscribaObject.prototype.stable = function() {
+    // find the latest revision which is approved (stable)
+    return this.revisions(
+      {
         order: 'createdAt desc',
-        limit: 1,
-      }, function(err, rev) {
-        if (err) return callback(err);
-        if (!rev || rev.length == 0) return callback('no revision found');
-
-        return callback(null, rev[0]);
-      });
-    });
+        where: {approved: true},
+        limit: 1
+      }
+    ).then(
+      // reduce to exact one revision
+      (revisions) => {
+        if (revisions.length === 0) throw Exceptions.NotFound.Revision;
+        return revisions[0];
+      }
+    );
   };
 
-  Obj.remoteMethod(
-    'latest',
-    {
-      description: 'Load latest revision of the chosen object',
-      accepts: [
-        {arg: 'id', type: 'string', required: true},
-      ],
-      returns: [
-        {arg: 'revision', type: 'object', root: true},
-      ],
-      http: {path: '/:id/latest', verb: 'get'},
-      isStatic: true,
-    }
-  );
+  /**
+   * Get user permissions for the TranscribaObject
+   * @param {object} request Express request object
+   * @param {Function(Error, object)} callback
+   */
 
-  Obj.latestPermissions = function(id, req, callback) {
-    var User = Obj.app.models.AppUser;
+  TranscribaObject.prototype.latestPermissions = function(request) {
+    const User = TranscribaObject.app.models.AppUser;
+    const userId = request.accessToken.userId;
 
-    // these lines were added to support such requests from guests
-    if (req.accessToken == undefined) {
+    // these lines were added to support requests from guests
+    if (request.accessToken == undefined) {
       // guests are not allowed to vote
-      return callback(null,
-        false, // no voting permissions
-        {
+      return Promise.resolve({
+        allowVote: false, // no voting permissions
+        details: {
           'eligibleVoter': false,
           'maximumVotesReached': false,
           'isOwner': false,
-        });
-    }
-
-    var userId = req.accessToken.userId;
-
-    Obj.latest(id, function(err, revision) {
-      if (err) return callback(err);
-      User.findById(userId, function(err, user) {
-        if (err) return callback(err);
-
-        user.isAllowedToVoteForRevision(revision, callback);
+        }
       });
-    });
-  };
-
-  Obj.remoteMethod(
-    'latestPermissions',
-    {
-      description: 'Collection of permission data regarding \
-      the current user and latest revision',
-      accepts: [
-        {arg: 'id', type: 'string', required: true},
-        {arg: 'req', type: 'object', required: true, http: {source: 'req'}},
-      ],
-      returns: [
-        {arg: 'allowVote', type: 'boolean'},
-        {arg: 'details', type: 'object'},
-      ],
-      http: {path: '/:id/latest/permissions', verb: 'get'},
-      isStatic: true,
     }
-  );
 
-  Obj.stable = function(id, callback) {
-    Obj.findById(id, function(err, obj) {
-      if (err) return callback(err);
-      if (obj == null) return callback('cannot find object');
-
-      obj.revisions({
-        order: 'createdAt desc',
-        where: {approved: true},
-        limit: 1,
-      }, function(err, rev) {
-        if (err) return callback(err);
-        if (!rev || rev.length == 0) return callback('no revision found');
-
-        return callback(null, rev[0]);
-      });
-    });
+    return Promise.join(
+      // load user and TranscribaObject
+      this.latest(),
+      User.findById(userId),
+      // check permissions
+      (latest, user) => user.isAllowedToVoteForRevision(latest)
+    );
   };
-
-  Obj.remoteMethod(
-    'stable',
-    {
-      description: 'Load stable revision of the chosen object',
-      accepts: [
-        {arg: 'id', type: 'string', required: true},
-      ],
-      returns: [
-        {arg: 'revision', type: 'object', root: true},
-      ],
-      http: {path: '/:id/stable', verb: 'get'},
-      isStatic: true,
-    }
-  );
 
   /**
-   * Method for the REST occupy endpoint.
-   * It is being used to set an object to occupied so that
-   * a single user (the user who made the request) is able to
-   * start working on it
+   * Assign the current user to this TranscribaObject
+   * @param {object} request Express request object
+   * @return {Promise<Revision>} new revision
    */
-  Obj.occupy = function(id, req, callback) {
-    var User = Obj.app.models.AppUser;
+  TranscribaObject.prototype.occupy = function(request) {
+    const User = TranscribaObject.app.models.AppUser;
+    const userId = request.accessToken.userId;
 
-    var userId = req.accessToken.userId;
+    return Promise.join(
+      User.findById(userId),
+      this.stable(),
+      (user, stableRevision) => {
+        // check trObject and user state
+        if (!user) throw Exceptions.NotFound.User;
+        if (user.busy) throw Exceptions.BusyUser;
+        if (this.status !== 'free') throw Exceptions.Occupied;
 
-    User.findById(userId, function(err, user) {
-      if (err) return callback(err);
-      if (user.busy) return callback('user is already occupied');
-
-      Obj.findById(id, function(err, obj) {
-        if (err) return callback(err);
-        if (obj.status != 'free') return callback("object isn't free");
-
-        Obj.stable(id, function(err, rev) {
-          if (err) return callback(err);
-
-          obj.revisions.create({
-            createdAt: new Date(),
-            ownerId: user.id,
-            metadata: rev.metadata,
-            content: Obj.cleanUpContent(rev.content, true),
-            published: false,
-            approved: false,
-          }, function(err, revision) {
-            if (err) return callback(err);
-
-            // set user to busy so that he has to finish the transcription on this
-            // object before he starts the next one
+        // create a new unstable revision owned by the user
+        return this.revisions.create({
+          createdAt: new Date(),
+          ownerId: user.id,
+          metadata: stableRevision.metadata,
+          content: TranscribaObject.cleanUpContent(
+            stableRevision.content,
+            true
+          ),
+          published: false,
+          approved: false
+        }).then(
+          (latestRevision) => {
+            // update user and trObject state
             user.busy = true;
-            user.save();
-
-            // set object status to occupied so that there are no edit conflicts
-            // between users
-            obj.status = 'occupied';
-            obj.occupiedAt = new Date();
-            obj.save();
-
-            return callback(null, revision);
-          });
-        });
-      });
-    });
+            this.status = 'occupied';
+            this.occupiedAt = new Date();
+            return Promise.all([
+              user.save(),
+              this.save()
+            ]).then(
+              () => latestRevision
+            );
+          }
+        );
+      }
+    );
   };
-
-  Obj.remoteMethod(
-    'occupy',
-    {
-      description: 'Current user wants to work on the transcription.',
-      accepts: [
-        {arg: 'id', type: 'string', required: true},
-        {arg: 'req', type: 'object', required: true, http: {source: 'req'}},
-      ],
-      returns: {
-        arg: 'id', type: 'object', root: true,
-      },
-      http: {path: '/:id/occupy', verb: 'post'},
-    }
-  );
 
   /**
    * Method for the REST occupy endpoint.
    * Aborts the current transcription, frees
    * the object and deletes the revision
    */
-  Obj.free = function(req, callback) {
-    var User = Obj.app.models.AppUser;
-    var userId = req.accessToken.userId;
+  TranscribaObject.free = function(request) {
+    const User = TranscribaObject.app.models.AppUser;
+    const userId = request.accessToken.userId;
+    let trObject;
 
-    User.findById(userId, function(err, user) {
-      if (err) return callback(err);
-      if (!user.busy) return callback('user is not occupied');
-
-      Obj.occupied(req, function(err, unused, rev) {
-        if (err) return callback(err);
-        if (!rev) return callback('no revision found');
-
-        rev.transcribaObject(function(err, obj) {
-          // set the user free
-          user.busy = false;
-          user.save();
-
-          // object is now free too
-          obj.status = 'free';
-          obj.save();
-
-          // delete revision
-          rev.destroy(callback);
-        });
-      });
-    });
+    return Promise.join(
+      User.findById(userId),
+      TranscribaObject.occupied(request).then(
+        (trObj) => {
+          trObject = trObj;
+          return trObject.latest();
+        }
+      ),
+      (user, revision) => {
+        if (!user) throw Exceptions.NotFound.User;
+        trObject.status = 'free';
+        user.busy = false;
+        return Promise.all([
+          user.save(),
+          trObject.save(),
+          revision.destroy()
+        ]);
+      }
+    ).then(
+      () => true
+    ).catch(
+      (_err) => false
+    );
   };
 
-  Obj.remoteMethod(
+  TranscribaObject.remoteMethod(
     'free',
     {
       description: 'User wants to abort the transcription',
       accepts: [
-        {arg: 'req', type: 'object', required: true, http: {source: 'req'}},
+        {arg: 'request', type: 'object', required: true, http: {source: 'req'}}
       ],
       returns: {
         arg: 'free', type: 'boolean', root: true,
@@ -643,7 +565,7 @@ module.exports = function(Obj) {
   /**
    * Checks whether the content ist valid or not
    */
-  Obj.contentValidator = function(content) {
+  TranscribaObject.contentValidator = function(content) {
     return (
       content.type !== undefined &&
       content.children !== undefined &&
@@ -657,7 +579,7 @@ module.exports = function(Obj) {
    * @param {TeiElement} content
    * @param {boolean} [markUntouched] - if true isDirty is set to false
    */
-  Obj.cleanUpContent = function(content, markUntouched) {
+  TranscribaObject.cleanUpContent = function(content, markUntouched) {
     // check for optional param
     if (markUntouched === undefined) {
       markUntouched = false;
@@ -665,7 +587,8 @@ module.exports = function(Obj) {
 
     // clean up child elements
     let children = content.children.map(
-      childContent => Obj.cleanUpContent(childContent, markUntouched)
+      childContent =>
+        TranscribaObject.cleanUpContent(childContent, markUntouched)
     );
 
     // cleaned structure
@@ -680,122 +603,80 @@ module.exports = function(Obj) {
   };
 
   /**
-   * Updates the latest revision of the object occupied by the current user
+   * Save content to the current revision
+   * @param {object} request Express request object
+   * @param {object} content manuscript content
+   * @param {Promise<Revision>}
    */
-  Obj.save = function(id, req, content, callback) {
-    var userId = req.accessToken.userId;// (!) this is an object not a string
+  TranscribaObject.prototype.saveContent = function(request, content) {
+    const userId = request.accessToken.userId;// (!) this is an object not a string
 
-    Obj.latest(id, function(err, revision) {
-      if (err)
-        return callback(err);
-      if (revision.ownerId.toJSON() != userId.toJSON())
-        return callback('it is not your turn!');
-      if (!Obj.contentValidator(content))
-        return callback('content has an inappropriate format');
-      if (revision.published)
-        return callback('revision is already published and cannot be changed');
+    return this.latest().then(
+      (revision) => {
+        if (revision.ownerId.toJSON() != userId.toJSON())
+          throw Exceptions.Occupied;
+        if (!TranscribaObject.contentValidator(content))
+          throw Exceptions.WrongFormat;
+        if (revision.published)
+          throw Exceptions.Replay;
 
-      revision.content = Obj.cleanUpContent(content);
-      revision.save();
-      callback(null, revision);
-    });
+        revision.content = TranscribaObject.cleanUpContent(content);
+        revision.save();
+
+        return revision;
+      }
+    );
   };
-
-  Obj.remoteMethod(
-    'save',
-    {
-      description: 'Save the content of the revision \
-      your are currently working on.',
-      accepts: [
-        {arg: 'id', type: 'string', required: true},
-        {arg: 'req', type: 'object', required: true, http: {source: 'req'}},
-        {
-          arg: 'content',
-          type: 'object',
-          required: true,
-          http: {source: 'body'},
-        },
-      ],
-      returns: {
-        arg: 'revision', type: 'object', root: true,
-      },
-      http: {path: '/:id/save', verb: 'post'},
-    }
-  );
 
   /**
-   * Updates the latest revision of the object occupied by the current user
+   * Save and finish the work on the current revision
+   * @param {object} request Express request object
+   * @param {object} content manuscript content
+   * @return {Promise<boolean>}
    */
-  Obj.publish = function(id, req, content, callback) {
-    var User = Obj.app.models.AppUser;
+  TranscribaObject.prototype.publish = function(request, content) {
+    const User = TranscribaObject.app.models.AppUser;
+    const userId = request.accessToken.userId;// (!) this is an object not a string
+    let user;
 
-    var userId = req.accessToken.userId;// (!) this is an object not a string
-
-    User.findById(userId, function(err, user) {
-      if (err) return callback(err);
-
-      Obj.save(id, req, content, function(err, revision) {
-        if (err) return callback(err);
-
-        // first get the related object
-        revision.transcribaObject(function(err, obj) {
-          if (err) return callback(err);
-
-          user.roles(function(err, roles) {
-            if (err) return callback(err);
-
-            var roleNames = roles.map(function(role) {
-              return role.name;
-            });
-
-            // update object status
-            // - if the user is trusted, employee or administrator
-            //   there is no need vor crowd voting
-            if (roleNames.indexOf('trusted') !== -1) {
-              obj.status = 'free';
+    // get user and user role data
+    return User.findById(userId)
+      .then(
+        // check if user has certain permissions (>= trusted)
+        (selectedUser) => {
+          if (!selectedUser) throw Exceptions.NotFound.User;
+          user = selectedUser;
+          return selectedUser.hasRole('trusted');
+        }
+      ).then(
+        // create new object revision
+        (isTrusted) => this.saveContent(request, content).then(
+          (revision) => {
+            if (isTrusted) {
+              this.status = 'free';
               revision.approved = true;
-              user.score = user.score + 10;
+              user.score += 10;
             } else {
-              obj.status = 'voting';
+              this.status = 'voting';
             }
-            obj.save();
 
-            // set revision state to published
             revision.published = true;
-            revision.save();
+            user.busy = false; // free user
 
-            // free user
-            user.busy = false;
-            user.save();
-          });
-
-          callback(null, true);
-        });
-      });
-    });
+            // make changes persistent
+            return Promise.all([
+              this.save(),
+              revision.save(),
+              user.save()
+            ]);
+          }
+        )
+      ).then(
+        () => true
+      ).catch(
+        () => false
+      );
   };
-
-  Obj.remoteMethod(
-    'publish',
-    {
-      description: 'Publish the content of the revision your are \
-      currently working on (Finishing the revision)',
-      accepts: [
-        {arg: 'id', type: 'string', required: true},
-        {arg: 'req', type: 'object', required: true, http: {source: 'req'}},
-        {
-          arg: 'content',
-          type: 'object',
-          required: true,
-          http: {source: 'body'},
-        },
-      ],
-      returns: {
-        arg: 'success', type: 'boolean', root: true,
-      },
-      http: {path: '/:id/publish', verb: 'post'},
-    }
-  );
 
   /**
    * Finds the object which is currently occupied by the user who
@@ -803,31 +684,31 @@ module.exports = function(Obj) {
    * then the request fails. It is recommended to check whether
    * the user is busy or not before using this method
    */
-  Obj.occupied = function(req, callback) {
-    var Revision = Obj.app.models.Revision;
-    var userId = req.accessToken.userId;
+  TranscribaObject.occupied = function(request) {
+    const Revision = TranscribaObject.app.models.Revision;
+    const userId = request.accessToken.userId;
 
-    Revision.findOne({
+    return Revision.findOne({
       where: {
         ownerId: userId,
-        published: false,
+        published: false
       },
       include: 'transcribaObject',
-    }, function(err, rev) {
-      if (err) return callback(err);
-      if (!rev) return callback('no revision found');
-
-      callback(null, rev.toJSON().transcribaObject, rev, rev.transcribaObject);
-    });
+    }).then(
+      (revision) => {
+        if (!revision) throw Exceptions.NotFound.Revision;
+        return revision.transcribaObject();
+      }
+    );
   };
 
-  Obj.remoteMethod(
+  TranscribaObject.remoteMethod(
     'occupied',
     {
       description: 'If the user occupied an transcribaObject, \
       this method will return this object',
       accepts: [
-        {arg: 'req', type: 'object', required: true, http: {source: 'req'}},
+        {arg: 'request', type: 'object', required: true, http: {source: 'req'}},
       ],
       returns: [
         {arg: 'occupiedObject', type: 'object', root: true},
@@ -837,41 +718,25 @@ module.exports = function(Obj) {
     }
   );
 
-  Obj.tei = function(id, callback) {
-    Obj.findById(id, {
-      'include':
-      [
-        'source',
-      ],
-    }, function(err, obj) {
-      if (err) return callback(err);
-      var sourceName = obj.toJSON().source.title;
-
-      Obj.stable(id, function(err, revision) {
-        if (err) return callback(err);
-
-        let content = revision.content;
-        let title = obj.title;
-        let xmlString = teiBuilder.objectToXml(content, title, sourceName);
-
-        callback(null, xmlString, 'text/xml');
-      });
-    });
+  /**
+   * Exports TranscribaObject data as TEI-XML
+   * @return {Promise<string>}
+   */
+  TranscribaObject.prototype.tei = function() {
+    return Promise.join(
+      this.stable(),
+      this.source.get(),
+      (stableRevision, source) => {
+        const content = stableRevision.content;
+        const title = this.title;
+        // return xml and content type
+        return [
+          teiBuilder.objectToXml(content, title, source.title),
+          'text/xml'
+        ];
+      }
+    );
   };
 
-  Obj.remoteMethod(
-    'tei',
-    {
-      description: 'Returns TEI xml file representing the content',
-      accepts: [
-        {arg: 'id', type: 'string', required: true},
-      ],
-      returns: [
-        {arg: 'body', type: 'file', root: true},
-        {arg: 'Content-Type', type: 'string', http: {target: 'header'}},
-      ],
-      http: {path: '/:id/tei', verb: 'get'},
-      isStatic: true,
-    }
-  );
+  TranscribaObject.disableRemoteMethodByName('create', true);
 };

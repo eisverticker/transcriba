@@ -6,14 +6,6 @@
     "validateUpsert": true
   },
   "properties": {
-    "itemType": {
-      "type": "string",
-      "required": true
-    },
-    "itemId": {
-      "type": "string",
-      "required": true
-    },
     "textRole": {
       "type": "string",
       "default": "none"
@@ -30,12 +22,9 @@
       "model": "Collection",
       "foreignKey": "collectionId"
     },
-    "transcribaObject": {
+    "collectionable": {
       "type": "belongsTo",
-      "polymorphic": {
-        "foreignKey": "itemId",
-        "discriminator": "itemType"
-      }
+      "polymorphic": true
     }
   },
   "acls": [],

@@ -1,34 +1,40 @@
 'use strict';
 
-var transcribaConfig = require('../../server/transcriba-config.json');
-var path = require('path');
+const Promise = require('bluebird');
 
-module.exports = function(user) {
-  user.minimumRevisionVotingScore = 30;
-  user.maximumRecentRevisionVotes = 20;
+const transcribaConfig = require('../../server/transcriba-config.json');
+const Exceptions = require('../exceptions.js');
+const path = require('path');
 
-  user.afterRemote('confirm', function(context, result, next) {
+module.exports = function(AppUser) {
+  const votingRequirements = transcribaConfig.game.votingRequirements;
+  AppUser.minimumRevisionVotingScore = votingRequirements.minimumScore;
+  AppUser.maximumRecentRevisionVotes = votingRequirements.maximumVotesPerDay;
+
+  AppUser.afterRemote('confirm', function(context) {
+    const User = AppUser.app.models.AppUser;
     // if the user is confirmed he will get the default role
-    var role = transcribaConfig.rbac.defaultRole;
+    const role = transcribaConfig.rbac.defaultRole;
 
-    user.app.models.AppUser.setRole(context.req.query.uid, role, function(err) {
-      if (err) return next(err);
-
-      return next();
-    });
+    return User.findById(context.req.query.uid).then(
+      (user) => {
+        if (!user) throw Exceptions.NotFound.User;
+        return user.setRole(role);
+      }
+    );
   });
 
   // send verification email after registration
-  user.afterRemote('create', function(context, user, next) {
-    console.log('> user.afterRemote triggered');
+  AppUser.afterRemote('create', function(context, createdUser) {
+    console.log('> AppUser.afterRemote triggered');
 
-    var options = {
+    const options = {
       type: 'email',
-      to: user.email,
+      to: createdUser.email,
       from: transcribaConfig.senderMail,
       subject: 'Bestätigung der Registrierung',
       template: path.resolve(__dirname, '../../server/views/verify.ejs'),
-      user: user,
+      user: createdUser,
       redirect: '/verified',
       appName: transcribaConfig.appName,
     };
@@ -40,21 +46,17 @@ module.exports = function(user) {
       options.port = '80';
     }
 
-    user.verify(options, function(err, response) {
-      if (err) return next(err);
-
-      // console.log('> verification email sent:', response);
-      return next();
-    });
+    return createdUser.verify(options);
   });
 
   // send password reset link when requested
-  user.on('resetPasswordRequest', function(info) {
-    var url = 'http://' + transcribaConfig.appUrl + '/reset-password';
-    var html = 'Click <a href="' + url + '?access_token=' +
+  AppUser.on('resetPasswordRequest', function(info) {
+    const Email = AppUser.app.models.Email;
+    const url = 'http://' + transcribaConfig.appUrl + '/reset-password';
+    const html = 'Click <a href="' + url + '?access_token=' +
         info.accessToken.id + '">here</a> to reset your password';
 
-    user.app.models.Email.send({
+    Email.send({
       to: info.email,
       from: transcribaConfig.senderMail,
       subject: 'Password reset',
@@ -65,27 +67,41 @@ module.exports = function(user) {
     });
   });
 
+  // prevent users from logging in as 'bot'
+  AppUser.beforeRemote('login', function(context) {
+    const reqBody = context.req.body;
+
+    if (
+      (
+        reqBody.username !== undefined &&
+        reqBody.username == transcribaConfig.bot.username
+      ) ||
+      (
+        reqBody.email !== undefined &&
+        reqBody.email == transcribaConfig.bot.email
+      )
+    ) {
+      throw Exceptions.Forbidden;
+    } else {
+      return Promise.resolve(null);
+    }
+  });
+
   /**
-  * Checks whether the user has the given role or not
+  * Checks whether the current user has the given role or not
+  * @todo: error handling
   * @param {string} roleName;
   * @callback requestCallback
   * @param {string} err;
   * @param {boolean} hasRole;
   */
-  user.prototype.hasRole = function(roleName, callback) {
-    this.roles(function(err, roles) {
-      if (err) return callback(err);
-
-      var roleNames = roles.map(function(role) {
-        return role.name;
-      });
-
-      if (roleNames.indexOf(roleName) !== -1) {
-        return callback(null, true);
-      } else {
-        return callback(null, false);
-      }
-    });
+  AppUser.prototype.hasRole = function(roleName) {
+    return AppUser.loadRoles(this.id)
+      .then(
+        (roles) => roles.map(role => role.name)
+      ).then(
+        (roleNames) =>  roleNames.indexOf(roleName) !== -1
+      );
   };
 
   /**
@@ -94,13 +110,14 @@ module.exports = function(user) {
   * @param {string} err;
   * @param {boolean} isEligible;
   */
-  user.prototype.isEligibleVoter = function(callback) {
-    var me = this;
-    this.hasRole('trusted', function(err, isTrusted) {
-      if (err) callback(err);
-
-      callback(null, me.score >= user.minimumRevisionVotingScore || isTrusted);
-    });
+  AppUser.prototype.isEligibleVoter = function() {
+    return this.hasRole('trusted')
+      .then(
+        (isTrusted) =>  (
+          isTrusted ||
+          this.score >= AppUser.minimumRevisionVotingScore
+        )
+      );
   };
 
   /**
@@ -111,10 +128,11 @@ module.exports = function(user) {
   * @param {string} err;
   * @param {number} numOfVotes;
   */
-  user.prototype.numOfRecentVotes = function(objectType, callback) {
-    var dateDistance = 1000 * 60 * 60 * 24;
+  AppUser.prototype.numOfRecentVotes = function(objectType) {
+    const Voting = AppUser.app.models.Voting;
+    const dateDistance = 1000 * 60 * 60 * 24; // 24 hours (represented in milliseconds)
 
-    user.app.models.Voting.count({
+    return Voting.count({
       'userId': this.id,
       'objectType': objectType,
       'createdAt': {
@@ -122,283 +140,232 @@ module.exports = function(user) {
           new Date(Date.now() - dateDistance),
           new Date(),
         ],
-      },
-    }, function(err, count) {
-      if (err) return callback(err);
-
-      callback(null, count);
+      }
     });
   };
 
   /**
-  * The effect of this method depends on the server settings, but
-  * it should give the user the specified role plus all roles below in the
-  * hierachy (if rbac is hierachical) and delete all above
-  * @param {string} id;
-  * @param {string} rolename
-  * @callback requestCallback
-  * @param {string} err
-  */
-  user.setRole = function(id, rolename, callback) {
-    var roles = transcribaConfig.rbac.roles;
-    var rolePosition = roles.indexOf(rolename);
+   * Give a user a role and additionally all roles below if hierachical rbac is allowed
+   * @param {number} rolename Name of the role which should be given (must exist on system)
+   * @param {Promise<boolean>}
+   */
 
-    if (rolePosition == -1) return callback('role not found');
+  AppUser.prototype.setRole = function(rolename) {
+    const roles = transcribaConfig.rbac.roles;
+    const rolePosition = roles.indexOf(rolename);
+
+    if (rolePosition == -1) throw Exceptions.NotFound.Role;
 
     if (transcribaConfig.rbac.hierachical) {
       // delete all roles which are higher than the given role
       // and add all role which are lower than the given role
       //
-      user.app.models.AppUser.addRoles(id, roles.slice(0, rolePosition + 1),
-        function(err) {
-          if (err) return callback(err);
-          // hier weiter
-          user.app.models.AppUser.removeRoles(
-            id,
-            roles.slice(rolePosition + 1),
-            callback
-          );
-        }
+      return this.addRoles(roles.slice(0, rolePosition + 1)).then(
+        () => this.removeRoles(roles.slice(rolePosition + 1))
       );
     } else {
-      user.app.models.AppUser.addRole(id, rolename, callback);
+      return this.addRole(rolename);
     }
   };
 
   /**
    * Checks if the user is permitted to vote for the given revision
    * @param {Revision} revision
-   * @callback requestCallback
+   * @promise permissions
    * @param {string} err
    * @param {boolean} isAllowed
    * @param {object} permissionDetails
+   * @todo check .toJSON() call in line 210 (is this necessary?)
    */
-  user.prototype.isAllowedToVoteForRevision = function(revision, callback) {
-    var me = this;
-
-    this.isEligibleVoter(function(err, eligible) {
-      if (err) return callback(err);
-
-      me.numOfRecentVotes('Revision', function(err, recentVotes) {
-        if (err) return callback(err);
-
-        return callback(null,
-          eligible &&
-          recentVotes < user.maximumRecentRevisionVotes &&
-          revision.ownerId.toJSON() != me.id.toJSON()
-          ,
-          {
-            'eligibleVoter': eligible,
+  AppUser.prototype.isAllowedToVoteForRevision = function(revision) {
+    return Promise.join(
+      this.isEligibleVoter(),
+      this.numOfRecentVotes('Revision'),
+      (isEligible, recentVoteCount) => {
+        return { // promise returns a complex object consisting of two attributes
+          allowVote: // complex boolean expression
+            (
+              isEligible &&
+              recentVoteCount < AppUser.maximumRecentRevisionVotes &&
+              revision.ownerId.toJSON() != this.id.toJSON()
+            ),
+          details: {
+            'eligibleVoter': isEligible,
             'maximumVotesReached':
-              recentVotes >= user.maximumRecentRevisionVotes,
-            'isOwner': revision.ownerId.toJSON() == me.id.toJSON(),
+              recentVoteCount >= AppUser.maximumRecentRevisionVotes,
+            'isOwner': revision.ownerId.toJSON() == this.id.toJSON(),
+          }
+        };
+      }
+    );
+  };
+
+  /**
+    * Adds roles to a user by role names
+    * @param {string} id
+    * @param {array} rolenames
+    * @return {Promise} void
+    */
+  AppUser.prototype.addRoles = function(rolenames) {
+    return Promise.mapSeries(rolenames,
+      (nameOfRole) => this.addRole(nameOfRole)
+    );
+  };
+
+  /**
+    * Remove roles from a user by role names
+    * @param {string} id
+    * @param {array} rolenames
+    * @return {Promise} void
+    */
+  AppUser.prototype.removeRoles = function(rolenames) {
+    return Promise.mapSeries(rolenames,
+      (nameOfRole) => this.removeRole(nameOfRole)
+    );
+  };
+
+  /**
+   * Dynamically add roles with the given role names to
+   * the system
+   * NOTE: this is usually done on install and not on a running system
+   */
+  AppUser.createRoles = function(roleNames) {
+    const Role = AppUser.app.models.Role;
+    const RoleMapping = AppUser.app.models.RoleMapping;
+    let currentRole, principal;
+
+    // use reduce to always get the result of the previous
+    // promise (role object) for hierachical roles
+    return Promise.reduce(roleNames,
+      (previousRole, roleName) => {
+        return Role.findOrCreate(
+          {where: {'name': roleName}},
+          {name: roleName}
+        ).then(
+          (mixed) => {
+            const role = mixed[0];
+            // the whole hierachical role support makes this
+            // a little bit more difficult, so read carefully
+            if (!role) throw Exceptions.NotFound.Role;
+            currentRole = role;
+            if (!transcribaConfig.rbac.hierachical || !previousRole) {
+              return currentRole;
+            }
+            principal = {
+              principalType: RoleMapping.ROLE,
+              principalId: role.id,
+            };
+            return previousRole.principals.findOne(principal).then(
+              (roleMapping) => {
+                // continue if role mapping already exists
+                if (roleMapping) return;
+                return previousRole.principals.create(principal);
+              }
+            ).then(
+              () => currentRole // finally return new role
+            );
           }
         );
-      });
-    });
-  };
-
-  user.remoteMethod(
-    'setRole',
-    {
-      description: 'Give the user this role',
-      accessType: 'WRITE',
-      accepts: [
-        {arg: 'id', type: 'string'},
-        {arg: 'rolename', type: 'string'},
-      ],
-      http: {path: '/roles', verb: 'post'},
-    }
-  );
-
-  user.addRoles = function(id, rolenames, callback) {
-    if (rolenames.length > 0) {
-      var role = rolenames.pop();
-      user.app.models.AppUser.addRole(id, role, function(err) {
-        if (err) return callback(err);
-
-        user.app.models.AppUser.addRoles(id, rolenames, callback);
-      });
-    } else {
-      callback(null);
-    }
-  };
-
-  user.removeRoles = function(id, rolenames, callback) {
-    if (rolenames.length > 0) {
-      var role = rolenames.pop();
-
-      user.app.models.AppUser.removeRole(id, role, function(err) {
-        if (err) return callback(err);
-
-        user.app.models.AppUser.removeRoles(id, rolenames, callback);
-      });
-    } else {
-      callback(null);
-    }
+      }, // end of reduce arrow function
+      null
+    ); // end of reduce call
   };
 
   /**
-   * Add the user to the given role by name.
+   * Give the user a role by role name
    * (original src: https://gist.github.com/leftclickben/aa3cf418312c0ffcc547)
-   * @param {string} roleName
-   * @param {Function} callback
-   */
-  user.addRole = function(id, rolename, callback) {
-    var Role = user.app.models.Role;
-    var User = user.app.models.AppUser;
-    var RoleMapping = user.app.models.RoleMapping;
-
-    var error;
-    var userId = id;
-
-    User.findById(userId, function(err, userObject) {
-      if (err) callback(err);
-
-      Role.findOne(
-        {
-          where: {name: rolename},
-        },
-        function(err, role) {
-          if (err) {
-            return callback(err);
-          }
-
-          if (!role) {
-            error = new Error('Role ' + rolename + ' not found.');
-            error['http_code'] = 404;
-            return callback(error);
-          }
-
-          RoleMapping.findOne(
-            {
-              where: {
-                principalType: RoleMapping.USER,
-                principalId: userId,
-                roleId: role.id,
-              },
-            },
-            function(err, roleMapping) {
-              if (err) {
-                return callback(err);
-              }
-
-              // role does already exist
-              if (roleMapping) {
-                return callback();
-              }
-
-              //
-              // simple version: does not work at the moment
-              //
-              // userObject.roles.add(role, callback);
-
-              // Classic version with USER principal type
-              role.principals.create(
-                {
-                  principalType: RoleMapping.USER,
-                  principalId: userId,
-                },
-                callback
-              );
-            }
-          );
-        }
-      );
-    });
-  };
-  user.remoteMethod(
-    'addRole',
-    {
-      accepts: [
-        {arg: 'id', type: 'string'},
-        {arg: 'rolename', type: 'string'},
-      ],
-      http: {path: '/:id/roles', verb: 'put'},
-    }
-  );
-
-  /**
-   * Remove the user from the given role by name.
-   * (original src: https://gist.github.com/leftclickben/aa3cf418312c0ffcc547)
+   * @private
    *
    * @param {string} roleName
    * @param {Function} callback
    */
-  user.removeRole = function(id, rolename, callback) {
-    var Role = user.app.models.Role;
-    var RoleMapping = user.app.models.RoleMapping;
+  AppUser.prototype.addRole = function(rolename) {
+    const Role = AppUser.app.models.Role;
+    const RoleMapping = AppUser.app.models.RoleMapping;
 
-    var userId = id;
-
-    Role.findOne(
-      {
-        where: {name: rolename},
-      },
-      function(err, roleObj) {
-        if (err) {
-          return callback(err);
-        }
-
-        if (!roleObj) {
-          // error = new Error('Role ' + rolename + ' not found.');
-          // error['http_code'] = 404;
-          // return callback(error);
-          return callback(null);
-        }
-        RoleMapping.findOne(
-          {
+    return Role.findOne({where: {name: rolename}})
+      .then(
+        (role) => {
+          if (!role) throw Exceptions.NotFound.Role;
+          return RoleMapping.findOne({
             where: {
               principalType: RoleMapping.USER,
-              principalId: userId,
-              roleId: roleObj.id,
-            },
-          },
-          function(err, roleMapping) {
-            if (err) {
-              return callback(err);
+              principalId: this.id,
+              roleId: role.id,
             }
-
-            if (!roleMapping) {
-              return callback(null);
+          }).then(
+            (roleMapping) => {
+              if (roleMapping) {
+                // role is already associated to the user
+                return;
+              } else {
+                // assign role to user
+                return role.principals.create({
+                  principalType: RoleMapping.USER,
+                  principalId: this.id
+                });
+              }
             }
+          );
+        }
+      );
+  };
 
-            roleMapping.destroy(callback);
-          }
-        );
+  /**
+   * Remove the user from the given role by name.
+   * (original src: https://gist.github.com/leftclickben/aa3cf418312c0ffcc547)
+   * @private
+   *
+   * @param {string} roleName
+   * @param {Function} callback
+   */
+  AppUser.prototype.removeRole = function(rolename) {
+    const Role = AppUser.app.models.Role;
+    const RoleMapping = AppUser.app.models.RoleMapping;
+
+    return Role.findOne({where: {name: rolename}})
+      .then(
+        (role) => {
+          // FIXME: previously here was no error thrown
+          //  so this breaking change should be documented
+          if (!role) throw Exceptions.NotFound.Role;
+
+          return RoleMapping.findOne(
+            {
+              where: {
+                principalType: RoleMapping.USER,
+                principalId: this.id,
+                roleId: role.id
+              }
+            }
+          );
+        }
+      )
+      .then(
+        (roleMapping) => {
+          // can't remove role from user because
+          // role is not assigned to him
+          // NOTE: we ignore this and just return
+          if (!roleMapping) return;
+
+          return roleMapping.destroy();
+        }
+      );
+  };
+
+  AppUser.score = function(req) {
+    if (!req.accessToken) throw Exceptions.WrongInput;
+    const userId = req.accessToken.userId;
+
+    return AppUser.findById(userId).then(
+      (resolvedUser) => {
+        if (!resolvedUser) throw Exceptions.NotFound.User;
+        return resolvedUser.score;
       }
     );
   };
-  user.remoteMethod(
-    'removeRole',
-    {
-      description: 'Remove User to the named role',
-      accessType: 'WRITE',
-      accepts: [
-        {arg: 'id', type: 'string'},
-        {arg: 'rolename', type: 'string'},
-      ],
-      http: {path: '/:id/roles/:rolename', verb: 'delete'},
-    }
-  );
 
-  user.score = function(req, callback) {
-    if (!req.accessToken) callback('bad request');
-    var userId = req.accessToken.userId;
-
-    user.findById(userId, function(err, usr) {
-      if (err) return callback(err);
-      if (!usr) {
-        let error = new Error('User ' + userId + ' not found.');
-        error['http_code'] = 404;
-        return callback(error);
-      }
-
-      callback(null, usr.score);
-    });
-  };
-
-  user.remoteMethod(
+  AppUser.remoteMethod(
     'score',
     {
       description: 'Load the number of score points of the given user',
@@ -413,14 +380,19 @@ module.exports = function(user) {
     }
   );
 
-  user.busy = function(req, callback) {
-    user.findById(req.accessToken.userId, function(err, u) {
-      if (err) return callback(err);
-      callback(null, u.busy);
-    });
+  /**
+   * This method returns whether the current user is currently blocking
+   * a manuscript (busy) or not
+   */
+  AppUser.busy = function(req) {
+    const userId = req.accessToken.userId;
+    return AppUser.findById(userId)
+      .then(
+        (currentUser) => currentUser.busy
+      );
   };
 
-  user.remoteMethod(
+  AppUser.remoteMethod(
     'busy',
     {
       description: 'Load busy state of the given user',
@@ -435,31 +407,32 @@ module.exports = function(user) {
     }
   );
 
-  user.leaderboard = function(maxNumOfUsers, callback) {
+  AppUser.leaderboard = function(maxNumOfUsers) {
     if (maxNumOfUsers == undefined) {
       maxNumOfUsers = 10;
     }
 
-    user.find({
+    return AppUser.find({
       limit: maxNumOfUsers,
-      order: 'score desc',
-    }, function(err, users) {
-      if (err) return callback(err);
-      callback(null, users.map(function(u) {
-        return {
-          'username': u.username,
-          'score': u.score,
-        };
-      }));
-    });
+      order: 'score desc'
+    }).then(
+      (users) => users.map(
+        (user) => {
+          return {
+            'username': user.username,
+            'score': user.score
+          };
+        }
+      )
+    );
   };
 
-  user.remoteMethod(
+  AppUser.remoteMethod(
     'leaderboard',
     {
       description: 'Load the best users',
       accepts: [
-        {arg: 'maxNumOfUsers', type: 'number'},
+        {arg: 'maxNumOfUsers', type: 'number'}
       ],
       returns: [
         {arg: 'scores', type: 'array', root: true},
@@ -469,40 +442,97 @@ module.exports = function(user) {
     }
   );
 
-  // prevent users from logging in as 'bot'
-  user.beforeRemote('login', function(context, instance, next) {
-    var reqBody = context.req.body;
-
-    if (
-      (
-        reqBody.username !== undefined &&
-        reqBody.username == transcribaConfig.bot.username
-      ) ||
-      (
-        reqBody.email !== undefined &&
-        reqBody.email == transcribaConfig.bot.email
-      )
-    ) {
-      next(new Error('cannot login as bot'));
-    } else {
-      next();
-    }
-  });
-
-  user.numOfEligibleVoters = function(callback) {
-    user.count({
-      score: {
-        gt: user.minimumRevisionVotingScore - 1,
-      },
-    }, callback);
+  /**
+   * Sets the tutorial flag to true this indicates but does not imply
+   * that the user completed the getting started tutorial
+   * NOTE: users receive a onetime reward for this
+   */
+  AppUser.completeTutorial = function(request) {
+    const userId = request.accessToken.userId;
+    return AppUser.findById(userId)
+      .then(
+        (currentUser) => {
+          // ensure that users only receive the reward once
+          if (currentUser.completeTutorial) return;
+          // give reward and save flag
+          currentUser.score += 15;
+          currentUser.completedTutorial = true;
+          return currentUser.save();
+        }
+      );
   };
 
-  user.disableRemoteMethodByName('__create__roles', false);
-  user.disableRemoteMethodByName('__delete__roles', false);
-  user.disableRemoteMethodByName('__link__roles', false);
-  user.disableRemoteMethodByName('__unlink__roles', false);
-  user.disableRemoteMethodByName('__updateById__roles', false);
-  user.disableRemoteMethodByName('__findById__roles', false);
-  user.disableRemoteMethodByName('__destroyById__roles', false);
-  user.disableRemoteMethodByName('__exists__roles', false);
+  AppUser.remoteMethod(
+    'completeTutorial',
+    {
+      description: 'Set the tutorial flag to true',
+      accepts: [
+        {arg: 'request', type: 'object', required: true, http: {source: 'req'}},
+      ],
+      returns: [],
+      http: {path: '/tutorial', verb: 'post'},
+      isStatic: true,
+    }
+  );
+
+  /**
+   * Get number of users which may vote in general
+   * this does not consider owner conditions
+   */
+  AppUser.numOfEligibleVoters = function() {
+    return AppUser.count({score: {gt: AppUser.minimumRevisionVotingScore - 1}});
+  };
+
+  /**
+   * Loads roles of user with the given id
+   * NOTE: this is a replacement for the normal
+   * NOTE: this should remain static
+   * user.roles relation (workaround see #19)
+   * @todo error handling
+   */
+  AppUser.loadRoles = function(id) {
+    const User = AppUser.app.models.AppUser;
+    const RoleMapping = AppUser.app.models.RoleMapping;
+    const Role = AppUser.app.models.Role;
+
+    // first make sure the user with userId id exists
+    return User.findById(id).then(
+      (selectedUser) =>
+        // second find mappings user => roleId (array)
+        RoleMapping.find({
+          where: {
+            principalType: RoleMapping.USER,
+            principalId: selectedUser.id
+          }
+        })
+    ).then(
+      // third get role names to role ids
+      (roleMappings) =>
+        Promise.all(roleMappings.map(
+          (item) => Role.findById(item.roleId)
+        ))
+    );
+  };
+
+  AppUser.remoteMethod(
+    'loadRoles',
+    {
+      accepts: [
+        {arg: 'id', type: 'string'}
+      ],
+      returns: [
+        {arg: 'roles', type: 'array', root: true},
+      ],
+      http: {path: '/:id/roles', verb: 'get'},
+    }
+  );
+
+  AppUser.disableRemoteMethodByName('__create__roles', false);
+  AppUser.disableRemoteMethodByName('__delete__roles', false);
+  AppUser.disableRemoteMethodByName('__link__roles', false);
+  AppUser.disableRemoteMethodByName('__unlink__roles', false);
+  AppUser.disableRemoteMethodByName('__updateById__roles', false);
+  AppUser.disableRemoteMethodByName('__findById__roles', false);
+  AppUser.disableRemoteMethodByName('__destroyById__roles', false);
+  AppUser.disableRemoteMethodByName('__exists__roles', false);
 };

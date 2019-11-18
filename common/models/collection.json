@@ -31,14 +31,71 @@
     "transcribaObjects": {
       "type": "hasMany",
       "model": "TranscribaObject",
-      "polymorphic": {
-        "foreignKey": "itemId",
-        "discriminator": "itemType"
-      },
       "through": "CollectionMapping",
-      "keyThrough": "collectionId"
+      "invert": true,
+      "polymorphic": "collectionable"
+    },
+    "collections": {
+      "type": "hasMany",
+      "model": "Collection",
+      "through": "CollectionMapping",
+      "invert": true,
+      "polymorphic": "collectionable"
     }
   },
-  "acls": [],
-  "methods": {}
+  "acls": [
+    {
+      "accessType": "EXECUTE",
+      "principalType": "ROLE",
+      "principalId": "$everyone",
+      "permission": "ALLOW",
+      "property": "thumbnail"
+    }    
+  ],
+  "methods": {
+    "prototype.progress": {
+      "accepts": [],
+      "returns": [
+        {
+          "arg": "progressPercentage",
+          "type": "number",
+          "root": true,
+          "description": "[0-100] where 100 means 100% complete"
+        }
+      ],
+      "description": "Current completion status of this collection",
+      "http": [
+        {
+          "path": "/progress",
+          "verb": "get"
+        }
+      ]
+    },
+    "prototype.thumbnail": {
+      "accepts": [],
+      "returns": [
+        {
+          "arg": "image",
+          "type": "file",
+          "root": true,
+          "description": "Image data"
+        },
+        {
+          "arg": "contentType",
+          "type": "string",
+          "http": {
+            "target": "header",
+            "header": "Content-Type"
+          }
+        }
+      ],
+      "description": "Print thumbnail image",
+      "http": [
+        {
+          "path": "/thumbnail",
+          "verb": "get"
+        }
+      ]
+    }
+  }
 }

@@ -1,14 +1,15 @@
 'use strict';
 
-var marked     = require('marked');
-var toMarkdown = marked;
-
-var customRenderer = new marked.Renderer();
+const marked     = require('marked');
+const toMarkdown = marked;
+const Exceptions = require('../exceptions.js');
+const customRenderer = new marked.Renderer();
 
 // alter the image rendering function to render image with
 // responsive bootstrap class
 customRenderer.image = function(href, title, text) {
-  var out = '<img class="img-responsive" src="' + href + '" alt="' + text + '"';
+  const out =
+    '<img class="img-responsive" src="' + href + '" alt="' + text + '"';
   if (title) {
     out += ' title="' + title + '"';
   }
@@ -32,21 +33,15 @@ customRenderer.table = function(header, body) {
 module.exports = function(InfoPage) {
   InfoPage.validatesUniquenessOf('name');
 
-  InfoPage.findByName = function(name, callback) {
-    if (name === undefined || name === null)
-      return callback('name is undefined');
-
-    InfoPage.findOne({
-      where: {
-        'name': name,
-      },
-    }, function(err, page) {
-      if (err) return callback(err);
-      if (page === null) return callback('page not available');
-
-      page.content = toMarkdown(page.content, {renderer: customRenderer});
-      callback(null, {'page': page});
-    });
+  InfoPage.findByName = function(name) {
+    if (typeof name !== 'string') throw Exceptions.WrongInput;
+    return InfoPage.findOne({where: {'name': name}}).then(
+      (page) => {
+        if (!page) throw Exceptions.NotFound.InfoPage;
+        page.content = toMarkdown(page.content, {renderer: customRenderer});
+        return page;
+      }
+    );
   };
 
   InfoPage.remoteMethod(
@@ -57,7 +52,7 @@ module.exports = function(InfoPage) {
       accepts: [
         {arg: 'name', type: 'string', required: true},
       ],
-      http: {path: '/parsed/:name', verb: 'get'},
+      http: {path: '/:name/parsed', verb: 'get'},
       returns: {arg: 'page', type: 'object', root: true},
     }
   );

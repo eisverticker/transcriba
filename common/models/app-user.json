@@ -1,7 +1,7 @@
 {
   "name": "AppUser",
   "base": "User",
-  "idInjection": true,
+  "idInjection": false,
   "options": {
     "validateUpsert": true
   },
@@ -10,7 +10,6 @@
     "verificationToken",
     "busy",
     "warnings",
-    "score",
     "disabled"
   ],
   "properties": {
@@ -37,12 +36,6 @@
   },
   "validations": [],
   "relations": {
-    "roles": {
-      "type": "hasMany",
-      "model": "Role",
-      "through": "RoleMapping",
-      "polymorphic": "principal"
-    },
     "comments": {
       "type": "hasMany",
       "model": "Comment",
@@ -61,7 +54,7 @@
       "principalType": "ROLE",
       "principalId": "$owner",
       "permission": "ALLOW",
-      "property": "__get__roles"
+      "property": "loadRoles"
     },
     {
       "accessType": "EXECUTE",
@@ -83,7 +76,43 @@
       "principalId": "$authenticated",
       "permission": "ALLOW",
       "property": "busy"
+    },
+    {
+      "accessType": "EXECUTE",
+      "principalType": "ROLE",
+      "principalId": "$authenticated",
+      "permission": "ALLOW",
+      "property": "completeTutorial"
     }
   ],
-  "methods": {}
+  "methods": {
+    "prototype.setRole": {
+      "accepts": [
+        {
+          "arg": "rolename",
+          "type": "number",
+          "required": true,
+          "description": "Name of the role which should be given (must exist on system)",
+          "http": {
+            "source": "query"
+          }
+        }
+      ],
+      "returns": [
+        {
+          "arg": "success",
+          "type": "boolean",
+          "root": true,
+          "description": "Indicates whether the operation was successful"
+        }
+      ],
+      "description": "Give a user a role and additionally all roles below if hierachical rbac is allowed",
+      "http": [
+        {
+          "path": "/roles",
+          "verb": "post"
+        }
+      ]
+    }
+  }
 }
