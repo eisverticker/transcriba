@@ -3,7 +3,6 @@
  * Central Collection of Errors / Exceptions which are being used
  * throughout the application
  */
-// TODO
 
 module.exports = {
   Unclear: new Error('Nonspecified Exception'),

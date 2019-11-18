@@ -23,8 +23,7 @@ module.exports = function(TranscribaObject) {
   TranscribaObject.highestStage = 3;
   // TODO: add to transcribaConfig
   TranscribaObject.thumbnailDimensions = {
-    width: 200,
-    height: 200
+    ...transcribaConfig.media.thumbnail
   };
 
   TranscribaObject.prototype.publishGeneratedTags = function() {

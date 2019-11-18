@@ -46,5 +46,11 @@
   "viewer": {
     "tileSize": 256
   },
-  "assetDirectory": "common/assets"  
+  "assetDirectory": "common/assets",
+  "media": {
+    "thumbnail": {
+      "width": 200,
+      "height": 200
+    }
+  }
 }
