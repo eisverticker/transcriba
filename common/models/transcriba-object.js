@@ -120,8 +120,6 @@ module.exports = function(TranscribaObject) {
   };
 
   TranscribaObject.importMetadata = function(source, externalId) {
-    console.log('source', source);
-    console.log('extId', externalId);
     return request(source.url.replace('{id}', externalId), {json: true})
       .then(
         // check format of received metadata object
