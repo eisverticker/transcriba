@@ -14,7 +14,7 @@
     "test": "jasmine"
   },
   "dependencies": {
-    "bcrypt": "^3.0.0",
+    "bcrypt": "^5.0.0",
     "bluebird": "^3.5.1",
     "compression": "^1.0.3",
     "configurator7": "^1.0.0",
