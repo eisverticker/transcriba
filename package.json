@@ -33,7 +33,7 @@
     "marked": "^0.3.6",
     "request": "^2.76.0",
     "serve-favicon": "^2.0.1",
-    "sharp": "^0.23.2",
+    "sharp": "^0.30.5",
     "strong-error-handler": "^2.0.0",
     "xmlbuilder": "^9.0.4"
   },
